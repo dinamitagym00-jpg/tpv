@@ -1,0 +1,7 @@
+
+body { margin:0; font-family:Arial; background:#f2f2f2; }
+#app { display:flex; height:100vh; }
+#menu { width:220px; background:#fff; border-right:1px solid #ddd; padding:10px; }
+#menu h2 { color:#c00000; }
+#menu button { width:100%; margin:4px 0; padding:10px; background:#c00000; color:#fff; border:none; cursor:pointer; }
+#content { flex:1; padding:20px; background:#fff; }
