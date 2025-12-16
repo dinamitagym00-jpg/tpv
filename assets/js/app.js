@@ -1,11 +1,12 @@
 /* Dinamita POS v0 - App Loader
-   Versión: v0.1.0
+   Versión: v0.1.1
    Fecha: 2025-12-15
+   Cambio: CSS de módulos precargado (evita "brinco").
 */
 const content = document.getElementById('content');
 
 function dpClearModuleAssets(){
-  document.querySelectorAll('link[data-dp-module-css]').forEach(el => el.remove());
+  // Solo removemos JS de módulo (CSS ya viene precargado en index.html)
   document.querySelectorAll('script[data-dp-module-js]').forEach(el => el.remove());
 }
 
@@ -14,12 +15,6 @@ async function loadModule(name){
 
   const html = await fetch(`modules/${name}/${name}.html`, { cache:"no-store" }).then(r=>r.text());
   content.innerHTML = html;
-
-  const cssLink = document.createElement('link');
-  cssLink.rel = "stylesheet";
-  cssLink.href = `modules/${name}/${name}.css`;
-  cssLink.setAttribute("data-dp-module-css","1");
-  document.head.appendChild(cssLink);
 
   const script = document.createElement('script');
   script.src = `modules/${name}/${name}.js`;
