@@ -1,7 +1,53 @@
-
-body { margin:0; font-family:Arial; background:#f2f2f2; }
-#app { display:flex; height:100vh; }
-#menu { width:220px; background:#fff; border-right:1px solid #ddd; padding:10px; }
-#menu h2 { color:#c00000; }
-#menu button { width:100%; margin:4px 0; padding:10px; background:#c00000; color:#fff; border:none; cursor:pointer; }
-#content { flex:1; padding:20px; background:#fff; }
+/* Dinamita POS v0 - Estilo general
+   Versión: v0.1.0
+   Fecha: 2025-12-15
+*/
+:root{
+  --dp-red:#c00000;
+  --dp-bg:#ffffff;
+  --dp-panel:#ffffff;
+  --dp-text:#111;
+  --dp-muted:#777;
+  --dp-border:#e6e6e6;
+}
+body{
+  margin:0;
+  font-family: Arial, sans-serif;
+  background: #f2f2f2;
+  color: var(--dp-text);
+}
+#app{ display:flex; min-height:100vh; }
+#menu{
+  width:240px;
+  background: var(--dp-panel);
+  border-right:1px solid var(--dp-border);
+  padding:12px;
+  position:sticky;
+  top:0;
+  height:100vh;
+  box-sizing:border-box;
+}
+#menu h2{
+  margin:0 0 10px 0;
+  color: var(--dp-red);
+  font-size:18px;
+}
+#menu nav{ display:flex; flex-direction:column; gap:8px; }
+#menu button{
+  width:100%;
+  padding:10px 12px;
+  background: var(--dp-red);
+  color:#fff;
+  border:none;
+  border-radius:10px;
+  cursor:pointer;
+  font-weight:800;
+  text-align:left;
+}
+#menu button:hover{ opacity:.95; }
+#content{
+  flex:1;
+  padding:18px;
+  background: var(--dp-bg);
+  box-sizing:border-box;
+}
