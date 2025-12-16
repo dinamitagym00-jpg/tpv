@@ -64,6 +64,21 @@
         <button class="btn" id="v-sell">Vender</button>
       </div>
 
+      <div class="ticketControls">
+        <label class="chk">
+          <input type="checkbox" id="v-requireTicket" checked>
+          <span>Generar ticket</span>
+        </label>
+        <div class="ticketBtns">
+          <button class="btn btn--ghost btn--mini" id="v-previewBtn">Previsualizar</button>
+          <button class="btn btn--mini" id="v-printBtn" disabled>Imprimir</button>
+        </div>
+      </div>
+
+      <div class="ticketPreview" id="v-ticketPreview" aria-label="Previsualización de ticket">
+        <div class="muted small">Aquí se mostrará el ticket después de vender o al previsualizar.</div>
+      </div>
+
       <div class="muted small" id="v-status"></div>
     </div>
   </div>

@@ -117,3 +117,44 @@
   .card__head{ grid-template-columns: 1fr; }
   .catalog{ grid-template-columns: 1fr; }
 }
+
+/* Ticket preview */
+.ticketControls{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-top:12px;
+}
+.chk{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-weight:800;
+  color:#222;
+}
+.chk input{ width:18px; height:18px; }
+.ticketBtns{ display:flex; gap:8px; }
+.ticketPreview{
+  margin-top:10px;
+  border:1px dashed #ddd;
+  border-radius:12px;
+  padding:12px;
+  background:#fafafa;
+  min-height:120px;
+}
+.ticket{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size:12px;
+  color:#111;
+  line-height:1.35;
+}
+.ticket .t-title{ font-weight:900; text-align:center; font-size:13px; }
+.ticket .t-center{ text-align:center; }
+.ticket .t-row{ display:flex; justify-content:space-between; gap:10px; }
+.ticket .t-hr{ border-top:1px dashed #999; margin:8px 0; }
+.ticket .t-items{ display:flex; flex-direction:column; gap:4px; }
+.ticket .t-item{ display:flex; justify-content:space-between; gap:10px; }
+.ticket .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.ticket .t-item .r{ flex:0 0 auto; font-weight:800; }
+.ticket .t-big{ font-size:14px; font-weight:900; }

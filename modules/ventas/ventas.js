@@ -1,6 +1,10 @@
 /* Ventas - Dinamita POS v0
-   Versión: v0.1.0
+   Versión: v0.1.1
    Fecha: 2025-12-15
+   Cambios:
+   - Previsualización de ticket.
+   - Botón para imprimir cuando se requiera.
+   - Venta puede registrarse SIN imprimir ticket.
 */
 (function(){
   const $ = (id)=>document.getElementById(id);
@@ -23,7 +27,13 @@
   const elClear = $("v-clear");
   const elStatus = $("v-status");
 
+  const elRequireTicket = $("v-requireTicket");
+  const elPreviewBtn = $("v-previewBtn");
+  const elPrintBtn = $("v-printBtn");
+  const elTicketPreview = $("v-ticketPreview");
+
   let cart = []; // [{productId, qty, price}]
+  let lastSaleId = null;
 
   function state(){ return dpGetState(); }
 
@@ -65,6 +75,7 @@
 
     const actions = document.createElement("div");
     actions.className = "pactions";
+
     const price = document.createElement("div");
     price.className = "price";
     price.textContent = dpFmtMoney(p.price);
@@ -134,14 +145,13 @@
     dpSetState(s=>{ dpRecordProductViewed(s, productId); return s; });
 
     const it = findCartItem(productId);
-    if(it){
-      it.qty += 1;
-    }else{
-      cart.push({ productId, qty:1, price:Number(p.price||0) });
-    }
+    if(it) it.qty += 1;
+    else cart.push({ productId, qty:1, price:Number(p.price||0) });
+
     renderCart();
     renderTotals();
 
+    // Barcode behavior: clear search after add
     elSearch.value = "";
     renderCatalog();
   }
@@ -156,7 +166,7 @@
     const it = findCartItem(productId);
     if(!it) return;
     it.qty += delta;
-    if(it.qty <= 0) removeFromCart(productId);
+    if(it.qty <= 0) removeFromCart(it.productId);
     renderCart();
     renderTotals();
   }
@@ -267,6 +277,124 @@
     return { ok:true, msg:"" };
   }
 
+  function getClientName(st, clientId){
+    const c = (st.clients||[]).find(x=>x.id===clientId);
+    return c?.name || "Mostrador";
+  }
+
+  function makeTicketFromSale(sale){
+    const st = state();
+    const biz = st.meta?.business || { name:"Dinamita Gym" };
+    const clientName = getClientName(st, sale.clientId);
+
+    const itemsHtml = (sale.items||[]).map(it=>{
+      const p = (st.products||[]).find(x=>x.id===it.productId);
+      const name = (p?.name || it.productId);
+      const line = `${it.qty} x ${dpFmtMoney(it.price)}`;
+      return `<div class="t-item"><div class="l">${name}</div><div class="r">${line}</div></div>`;
+    }).join("");
+
+    return `
+      <div class="ticket">
+        <div class="t-title">${biz.name || "Dinamita Gym"}</div>
+        <div class="t-center">Ticket: <strong>${sale.id}</strong></div>
+        <div class="t-center">${sale.at}</div>
+        <div class="t-hr"></div>
+        <div class="t-row"><span>Cliente</span><strong>${clientName}</strong></div>
+        ${sale.note ? `<div class="t-row"><span>Nota</span><strong>${sale.note}</strong></div>` : ""}
+        <div class="t-hr"></div>
+        <div class="t-items">${itemsHtml}</div>
+        <div class="t-hr"></div>
+        <div class="t-row"><span>Subtotal</span><strong>${dpFmtMoney(sale.subtotal)}</strong></div>
+        <div class="t-row"><span>IVA</span><strong>${dpFmtMoney(sale.ivaAmount)}</strong></div>
+        <div class="t-row t-big"><span>Total</span><strong>${dpFmtMoney(sale.total)}</strong></div>
+        <div class="t-hr"></div>
+        <div class="t-center">Gracias por tu compra en Dinamita Gym 💥</div>
+      </div>
+    `;
+  }
+
+  function previewTicketFromCart(){
+    if(cart.length === 0){
+      elTicketPreview.innerHTML = `<div class="muted small">Carrito vacío. Agrega productos para previsualizar.</div>`;
+      elPrintBtn.disabled = true;
+      return;
+    }
+    const st = state();
+    const clientId = elClient.value || "C000";
+    const note = (elNote.value||"").trim();
+    const { subtotal, ivaAmount, total, ivaRate } = calcTotals();
+
+    const fakeSale = {
+      id: "PREVIEW",
+      at: new Date().toLocaleString("es-MX"),
+      clientId,
+      note,
+      subtotal,
+      ivaRate,
+      ivaAmount,
+      total,
+      items: cart.map(i=>({ productId:i.productId, qty:i.qty, price:i.price, total:i.qty*i.price }))
+    };
+
+    elTicketPreview.innerHTML = makeTicketFromSale(fakeSale);
+    elPrintBtn.disabled = false;
+  }
+
+  function printTicketBySaleId(saleId){
+    const st = state();
+    const sale = (st.sales||[]).find(s=>s.id===saleId);
+    if(!sale){
+      elStatus.textContent = "No se encontró el ticket para imprimir.";
+      return;
+    }
+
+    const html = `
+      <html>
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Ticket ${sale.id}</title>
+          <style>
+            body{ margin:0; padding:12px; }
+            .ticket{
+              font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+              font-size:12px; color:#111; line-height:1.35;
+              width: 280px;
+            }
+            .t-title{ font-weight:900; text-align:center; font-size:13px; }
+            .t-center{ text-align:center; }
+            .t-row{ display:flex; justify-content:space-between; gap:10px; }
+            .t-hr{ border-top:1px dashed #999; margin:8px 0; }
+            .t-items{ display:flex; flex-direction:column; gap:4px; }
+            .t-item{ display:flex; justify-content:space-between; gap:10px; }
+            .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .t-item .r{ flex:0 0 auto; font-weight:800; }
+            .t-big{ font-size:14px; font-weight:900; }
+            @media print{
+              body{ padding:0; }
+            }
+          </style>
+        </head>
+        <body>
+          ${makeTicketFromSale(sale)}
+          <script>
+            window.onload = () => { window.print(); window.onafterprint = () => window.close(); };
+          <\/script>
+        </body>
+      </html>
+    `;
+
+    const w = window.open("", "_blank", "width=360,height=640");
+    if(!w){
+      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
+
   function doSell(){
     const v = canSell();
     if(!v.ok){
@@ -281,18 +409,31 @@
     dpCreateSale({ clientId, cartItems: cart, note, iva: ivaRate });
 
     const after = state();
-    const ticket = after.sales?.[0]?.id || "TICKET";
+    const ticket = after.sales?.[0]?.id || null;
+    lastSaleId = ticket;
+
+    // Always show preview after selling (so you can decide to print or not)
+    if(ticket){
+      const sale = after.sales[0];
+      elTicketPreview.innerHTML = makeTicketFromSale(sale);
+      elPrintBtn.disabled = false;
+    }
 
     clearCart();
     renderCatalog();
-    elStatus.textContent = `Venta realizada: ${ticket}`;
+
+    // If user wants immediate print, print; else just leave preview ready
+    if(ticket && elRequireTicket.checked){
+      printTicketBySaleId(ticket);
+      elStatus.textContent = `Venta realizada e impresa: ${ticket}`;
+    }else{
+      elStatus.textContent = ticket ? `Venta registrada (sin imprimir): ${ticket}` : "Venta registrada.";
+    }
   }
 
   function handleSearchInput(){
     const q = (elSearch.value||"").trim();
     const st = state();
-
-    // exact barcode match => auto add + clear
     const exact = st.products.find(p => String(p.barcode||"") === q);
     if(exact){
       addToCart(exact.id);
@@ -301,6 +442,57 @@
     renderCatalog();
   }
 
+  function handlePrint(){
+    // Print last sale if exists, else print preview (requires cart preview already)
+    const st = state();
+    if(lastSaleId){
+      printTicketBySaleId(lastSaleId);
+      return;
+    }
+    // if no last sale, try preview
+    previewTicketFromCart();
+    // printing preview uses the PREVIEW ticket, but we print the HTML in preview area
+    // We'll open window with the current preview HTML
+    const previewHtml = elTicketPreview.innerHTML;
+    const w = window.open("", "_blank", "width=360,height=640");
+    if(!w){
+      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
+      return;
+    }
+    w.document.open();
+    w.document.write(`
+      <html>
+        <head><meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Ticket Preview</title>
+          <style>
+            body{ margin:0; padding:12px; }
+            .ticket{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+              font-size:12px; color:#111; line-height:1.35; width:280px; }
+            .t-title{ font-weight:900; text-align:center; font-size:13px; }
+            .t-center{ text-align:center; }
+            .t-row{ display:flex; justify-content:space-between; gap:10px; }
+            .t-hr{ border-top:1px dashed #999; margin:8px 0; }
+            .t-items{ display:flex; flex-direction:column; gap:4px; }
+            .t-item{ display:flex; justify-content:space-between; gap:10px; }
+            .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .t-item .r{ flex:0 0 auto; font-weight:800; }
+            .t-big{ font-size:14px; font-weight:900; }
+            @media print{ body{ padding:0; } }
+          </style>
+        </head>
+        <body>
+          ${previewHtml}
+          <script>
+            window.onload = () => { window.print(); window.onafterprint = () => window.close(); };
+          <\/script>
+        </body>
+      </html>
+    `);
+    w.document.close();
+  }
+
+  // Init
   renderClients();
   renderCatalog();
   renderCart();
@@ -311,4 +503,7 @@
   elIVA.addEventListener("input", renderTotals);
   elClear.addEventListener("click", clearCart);
   elSell.addEventListener("click", doSell);
+
+  elPreviewBtn.addEventListener("click", previewTicketFromCart);
+  elPrintBtn.addEventListener("click", handlePrint);
 })();
