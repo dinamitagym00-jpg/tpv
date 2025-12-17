@@ -38,17 +38,11 @@
 
   function state(){ return dpGetState(); }
 
-  function forceDefaultClient(){
-    if(!elClient) return;
-    const hasGen = Array.from(elClient.options).some(o=>o.value==="GEN");
-    elClient.value = hasGen ? "GEN" : (elClient.options[0]?.value || "");
-  }
-
-function renderClients(){
+  function renderClients(){
     const st = state();
     elClient.innerHTML = "";
 
-    // Mostrador / default option (GEN)
+    // Mostrador / default option
     const gen = (st.clients||[]).find(c=>c.id==="GEN");
     const optGen = document.createElement("option");
     optGen.value = "GEN";
@@ -63,7 +57,6 @@ function renderClients(){
       elClient.appendChild(opt);
     });
 
-    // Always default to Mostrador
     elClient.value = "GEN";
   }
 
@@ -281,6 +274,9 @@ function renderClients(){
     renderCart();
     renderTotals();
     elStatus.textContent = "";
+    if(elClient) elClient.value = "GEN";
+    if(elPayMethod) elPayMethod.value = "efectivo";
+    if(elRequireTicket) elRequireTicket.checked = false;
   }
 
   function canSell(){
@@ -303,8 +299,8 @@ function renderClients(){
 
   function makeTicketFromSale(sale){
     const st = state();
-    const biz = dpGetBizInfo();
-    const tcfg = dpGetTicketCfg();
+    const biz = (typeof dpGetBizInfo==="function") ? dpGetBizInfo() : (st.meta?.business || { name:"Dinamita Gym" });
+    const tcfg = (typeof dpGetTicketCfg==="function") ? dpGetTicketCfg() : { message:"${tcfg.message}" };
     const clientName = getClientName(st, sale.clientId);
 
     const itemsHtml = (sale.items||[]).map(it=>{
@@ -520,13 +516,29 @@ function renderClients(){
 
   // Init
   renderClients();
-  forceDefaultClient();
+  if(elView) elView.value = "all";
+  if(elClient) elClient.value = "GEN";
   if(elPayMethod) elPayMethod.value = "efectivo";
   if(elRequireTicket) elRequireTicket.checked = false;
-  if(elPayMethod) elPayMethod.value = "efectivo";
-  if(elRequireTicket) elRequireTicket.checked = false;
+  renderCatalog();
   // Defaults on enter
-  try{ forceDefaultClient(); }catch(e){}
+  if(elClient){ elClient.value = (Array.from(elClient.options).some(o=>o.value==="GEN") ? "GEN" : (elClient.options[0]?.value||"")); }
   if(elPayMethod){ elPayMethod.value = "efectivo"; }
   if(elRequireTicket){ elRequireTicket.checked = false; }
+  renderCatalog();
+  renderCart();
+  renderTotals();
+
+  elSearch.addEventListener("input", handleSearchInput);
+  elView.addEventListener("change", renderCatalog);
+  elIVA.addEventListener("input", renderTotals);
+  elClear.addEventListener("click", clearCart);
+  elSell.addEventListener("click", doSell);
+
+  elPreviewBtn.addEventListener("click", previewTicketFromCart);
+  elPrintBtn.addEventListener("click", handlePrint);
+    // Defaults
+    if(elClient){ elClient.value = (Array.from(elClient.options).some(o=>o.value==="GEN") ? "GEN" : (elClient.options[0]?.value||"")); }
+    if(elPayMethod){ elPayMethod.value = "efectivo"; }
+    if(elRequireTicket){ elRequireTicket.checked = false; }
   })();
