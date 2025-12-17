@@ -553,3 +553,72 @@ function dpFindMembershipPlanById(id){
   const list = st.meta?.membershipCatalog || [];
   return list.find(x=>x.id===id) || null;
 }
+
+
+/* --- Clientes CRUD --- */
+function dpNextClientId(){
+  const st = dpGetState();
+  const ids = (st.clients||[]).map(c=>c.id||"").filter(id=>/^C\d{3}$/.test(id));
+  let max = -1;
+  ids.forEach(id=>{ const n = parseInt(id.slice(1),10); if(!isNaN(n)) max = Math.max(max,n); });
+  const next = max+1;
+  return "C" + String(next).padStart(3,"0");
+}
+
+function dpAddClient({name, phone="", address="", notes="", photo=""}){
+  return dpSetState(st=>{
+    st.clients = st.clients || [];
+    const id = dpNextClientId();
+    st.clients.unshift({
+      id,
+      name: String(name||"").trim(),
+      phone: String(phone||"").trim(),
+      address: String(address||"").trim(),
+      notes: String(notes||"").trim(),
+      photo: photo || "",
+      createdAt: dpNowISO(),
+      updatedAt: dpNowISO()
+    });
+    return st;
+  });
+}
+
+function dpUpdateClient(id, updates){
+  return dpSetState(st=>{
+    st.clients = st.clients || [];
+    const c = st.clients.find(x=>x.id===id);
+    if(!c) return st;
+    if(updates.name !== undefined) c.name = String(updates.name||"").trim();
+    if(updates.phone !== undefined) c.phone = String(updates.phone||"").trim();
+    if(updates.address !== undefined) c.address = String(updates.address||"").trim();
+    if(updates.notes !== undefined) c.notes = String(updates.notes||"").trim();
+    if(updates.photo !== undefined) c.photo = updates.photo || "";
+    c.updatedAt = dpNowISO();
+    return st;
+  });
+}
+
+function dpCanDeleteClient(id){
+  const st = dpGetState();
+  if(id==="C000") return { ok:false, reason:"No se puede borrar 'Mostrador'." };
+  const hasSale = (st.sales||[]).some(s=>s.clientId===id);
+  if(hasSale) return { ok:false, reason:"Este cliente tiene ventas ligadas." };
+  const hasMem = (st.memberships||[]).some(m=>m.clientId===id);
+  if(hasMem) return { ok:false, reason:"Este cliente tiene membresías ligadas." };
+  return { ok:true, reason:"" };
+}
+
+function dpDeleteClient(id){
+  const check = dpCanDeleteClient(id);
+  if(!check.ok) return check;
+  dpSetState(st=>{
+    st.clients = (st.clients||[]).filter(c=>c.id!==id);
+    return st;
+  });
+  return { ok:true, reason:"" };
+}
+
+function dpGetClientById(id){
+  const st = dpGetState();
+  return (st.clients||[]).find(c=>c.id===id) || null;
+}
