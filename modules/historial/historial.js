@@ -33,10 +33,8 @@
   }
 
   function getConfig(){
-    const biz = (typeof dpGetBizInfo === "function") ? dpGetBizInfo() : { name:"DINÁMITA GYM" };
+    const biz = (typeof dpGetBizInfo === "function") ? dpGetBizInfo() : { name:"DINÁMITA GYM", address:"", phone:"", email:"", social:"", logoDataUrl:"" };
     const tcfg = (typeof dpGetTicketCfg === "function") ? dpGetTicketCfg() : { message:"Gracias por tu compra en Dinamita Gym 💥" };
-    const st = state();
-    const ticket = st.config?.ticket || {};
     return {
       logoDataUrl: biz.logoDataUrl || "",
       name: biz.name || "DINÁMITA GYM",
@@ -44,11 +42,12 @@
       phone: biz.phone || "",
       email: biz.email || "",
       social: biz.social || "",
-      message: ticket.message || tcfg.message,
+      message: tcfg.message || "Gracias por tu compra en Dinamita Gym 💥",
       ivaLabel: "IVA: 0%"
     };
-  };
   }
+
+
 
   function getClientName(clientId){
     const st = state();

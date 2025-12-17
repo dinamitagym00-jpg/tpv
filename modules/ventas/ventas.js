@@ -65,7 +65,6 @@ function renderClients(){
 
     // Always default to Mostrador
     elClient.value = "GEN";
-  });
   }
 
   function productCard(p){
