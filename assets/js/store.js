@@ -782,14 +782,18 @@ function dpRenderBranding(){
   const biz = dpGetBizInfo();
   const img = document.getElementById("dp-menuLogo");
   const nameEl = document.getElementById("dp-menuName");
+  const fb = document.getElementById("dp-menuLogoFallback");
   if(nameEl) nameEl.textContent = biz.name || "Dinamita POS";
+
   if(img){
     if(biz.logoDataUrl){
       img.src = biz.logoDataUrl;
       img.style.display = "block";
+      if(fb) fb.style.display = "none";
     }else{
-      img.src = "";
+      img.removeAttribute("src");
       img.style.display = "none";
+      if(fb) fb.style.display = "flex";
     }
   }
 }
