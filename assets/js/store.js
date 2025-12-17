@@ -47,6 +47,7 @@ function dpDefaultState(){
     ],
     sales: [],
     memberships: [],
+    warehouse: { movements: [] },
     analytics: {
       mostSold: {},
       recentSearches: [],
@@ -145,6 +146,84 @@ function dpCreateSale({clientId, cartItems, note, iva=0}){
       items
     });
 
+    return st;
+  });
+}
+
+
+/* --- Bodega (movimientos de entrada) --- */
+function dpCreateWarehouseEntry({productId, qty, unitCost, supplier, date, notes, imageDataUrl}){
+  return dpSetState(st=>{
+    const id = dpId("B");
+    const at = dpNowISO();
+    const entryDate = date || at.slice(0,10);
+    const movement = {
+      id,
+      at,
+      date: entryDate,
+      productId,
+      qty: Number(qty||0),
+      unitCost: Number(unitCost||0),
+      supplier: supplier || "",
+      notes: notes || "",
+      image: imageDataUrl || ""
+    };
+
+    st.warehouse = st.warehouse || { movements: [] };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.movements.unshift(movement);
+
+    // Affect inventory stock
+    const p = (st.products||[]).find(x=>x.id===productId);
+    if(p){
+      p.stock = Number(p.stock||0) + Number(qty||0);
+      if(Number(unitCost||0) > 0) p.cost = Number(unitCost||0);
+      p.updatedAt = at;
+      if(!p.image && imageDataUrl) p.image = imageDataUrl;
+    }
+
+    return st;
+  });
+}
+
+function dpUpdateWarehouseEntry(entryId, updates){
+  return dpSetState(st=>{
+    const mv = st.warehouse?.movements?.find(x=>x.id===entryId);
+    if(!mv) return st;
+
+    const oldQty = Number(mv.qty||0);
+    const newQty = updates.qty !== undefined ? Number(updates.qty||0) : oldQty;
+    const diff = newQty - oldQty;
+
+    Object.assign(mv, updates);
+    mv.qty = newQty;
+    mv.unitCost = updates.unitCost !== undefined ? Number(updates.unitCost||0) : Number(mv.unitCost||0);
+
+    const p = (st.products||[]).find(x=>x.id===mv.productId);
+    if(p){
+      p.stock = Number(p.stock||0) + diff;
+      if(Number(mv.unitCost||0) > 0) p.cost = Number(mv.unitCost||0);
+      if(!p.image && mv.image) p.image = mv.image;
+      p.updatedAt = dpNowISO();
+    }
+
+    return st;
+  });
+}
+
+function dpDeleteWarehouseEntry(entryId){
+  return dpSetState(st=>{
+    const mvs = st.warehouse?.movements || [];
+    const mv = mvs.find(x=>x.id===entryId);
+    if(!mv) return st;
+
+    const p = (st.products||[]).find(x=>x.id===mv.productId);
+    if(p){
+      p.stock = Math.max(0, Number(p.stock||0) - Number(mv.qty||0));
+      p.updatedAt = dpNowISO();
+    }
+
+    st.warehouse.movements = mvs.filter(x=>x.id!==entryId);
     return st;
   });
 }
