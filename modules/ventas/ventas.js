@@ -527,23 +527,7 @@ function renderClients(){
   if(elPayMethod) elPayMethod.value = "efectivo";
   if(elRequireTicket) elRequireTicket.checked = false;
   // Defaults on enter
-  if(elClient){ elClient.value = (Array.from(elClient.options).some(o=>o.value==="GEN") ? "GEN" : (elClient.options[0]?.value||"")); }
+  try{ forceDefaultClient(); }catch(e){}
   if(elPayMethod){ elPayMethod.value = "efectivo"; }
   if(elRequireTicket){ elRequireTicket.checked = false; }
-  renderCatalog();
-  renderCart();
-  renderTotals();
-
-  elSearch.addEventListener("input", handleSearchInput);
-  elView.addEventListener("change", renderCatalog);
-  elIVA.addEventListener("input", renderTotals);
-  elClear.addEventListener("click", clearCart);
-  elSell.addEventListener("click", doSell);
-
-  elPreviewBtn.addEventListener("click", previewTicketFromCart);
-  elPrintBtn.addEventListener("click", handlePrint);
-    // Defaults
-    if(elClient){ elClient.value = (Array.from(elClient.options).some(o=>o.value==="GEN") ? "GEN" : (elClient.options[0]?.value||"")); }
-    if(elPayMethod){ elPayMethod.value = "efectivo"; }
-    if(elRequireTicket){ elRequireTicket.checked = false; }
   })();
