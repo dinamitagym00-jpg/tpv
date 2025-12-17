@@ -1,1 +1,107 @@
-<h1>Membresias</h1><p>Módulo membresias base.</p>
+<section class="membresias">
+  <header class="mem__header">
+    <div>
+      <h1>Membresías</h1>
+      <p class="muted">Guarda y cobra membresías. Al cobrar, se registra también como venta (sin afectar inventario).</p>
+    </div>
+  </header>
+
+  <div class="mem__grid">
+    <div class="card">
+      <div class="card__head">
+        <h2 class="h2">Nueva membresía</h2>
+        <div class="muted small" id="m-mode">Modo: Alta</div>
+      </div>
+      <div class="divider"></div>
+
+      <form id="m-form" autocomplete="off">
+        <input type="hidden" id="m-id">
+
+        <div class="field">
+          <label>Cliente</label>
+          <select id="m-client"></select>
+          <small class="muted">Si no tienes clientes aún, usa “Cliente General”.</small>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Tipo</label>
+            <select id="m-type"></select>
+          </div>
+          <div class="field">
+            <label>Subtipo</label>
+            <select id="m-subtype"></select>
+          </div>
+        </div>
+
+        <div class="row3">
+          <div class="field">
+            <label>Duración (días)</label>
+            <input id="m-days" type="number" min="1" step="1" value="30">
+            <small class="muted">Editable</small>
+          </div>
+          <div class="field">
+            <label>Inicio</label>
+            <input id="m-start" type="date">
+          </div>
+          <div class="field">
+            <label>Fin</label>
+            <input id="m-end" type="date" readonly>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label>Precio</label>
+            <input id="m-price" type="number" min="0" step="0.01" value="0">
+          </div>
+          <div class="field">
+            <label>Nota</label>
+            <input id="m-notes" type="text" placeholder="Opcional">
+          </div>
+        </div>
+
+        <div class="actions">
+          <button type="button" class="btn btn--ghost" id="m-clear">Limpiar</button>
+          <button type="submit" class="btn" id="m-save">Guardar</button>
+          <button type="button" class="btn" id="m-charge">Guardar y Cobrar</button>
+        </div>
+
+        <div class="row2" style="margin-top:10px;">
+          <label class="chk">
+            <input type="checkbox" id="m-makeTicket" checked>
+            <span>Generar ticket (previsualizar)</span>
+          </label>
+          <button type="button" class="btn btn--ghost" id="m-print" disabled>Imprimir ticket</button>
+        </div>
+
+        <div class="muted small" id="m-status"></div>
+      </form>
+
+      <div class="ticketBox">
+        <div class="ticketHead">
+          <strong>Ticket (previsualización)</strong>
+          <span class="muted small">Solo se imprime si lo pides.</span>
+        </div>
+        <div id="m-ticketPreview" class="ticketPreview muted">Sin ticket.</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__head">
+        <h2 class="h2">Listado</h2>
+        <div class="filters">
+          <input id="m-search" class="input" placeholder="Buscar por cliente / ID">
+          <input id="m-from" class="input" type="date">
+          <input id="m-to" class="input" type="date">
+          <button class="btn btn--ghost" type="button" id="m-exportCsv">Excel</button>
+          <button class="btn btn--ghost" type="button" id="m-exportPdf">PDF</button>
+        </div>
+      </div>
+      <div class="divider"></div>
+
+      <div id="m-list" class="memList"></div>
+      <div class="muted" id="m-empty" style="display:none;">Sin membresías.</div>
+    </div>
+  </div>
+</section>

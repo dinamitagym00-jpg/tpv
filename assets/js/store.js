@@ -35,7 +35,18 @@ function dpSave(state){
 
 function dpDefaultState(){
   return {
-    meta: { categories: ['suplemento','agua','accesorio'], version:"v0.1.0", createdAt: dpNowISO(), business:{ name:"Dinamita Gym", ivaDefault:0 } },
+    meta: { categories: ['suplemento','agua','accesorio'], version:"v0.1.0", createdAt: dpNowISO(), business:{ name:"Dinamita Gym", ivaDefault:0 ,
+      membershipOptions: {
+        durations: [1,7,30,183,365],
+        types: [
+          { name:'Visita', subtypes:['Normal','Socio','VIP'], defaultDays:1 },
+          { name:'Semana', subtypes:['Normal','Socio','VIP'], defaultDays:7 },
+          { name:'Mensual', subtypes:['Normal','Socio','VIP'], defaultDays:30 },
+          { name:'Medio Año', subtypes:['Normal'], defaultDays:183 },
+          { name:'Anual', subtypes:['Normal'], defaultDays:365 }
+        ]
+      }
+} },
     products: [
       { id:"P001", sku:"SKU-0001", barcode:"750000000001", name:"Agua 1L", category:"agua", price:14, cost:8, stock:50, image:"", updatedAt:dpNowISO() },
       { id:"P002", sku:"SKU-0002", barcode:"750000000002", name:"Proteína 2lb", category:"suplemento", price:650, cost:450, stock:12, image:"", updatedAt:dpNowISO() },
@@ -370,6 +381,102 @@ function dpTransferFromWarehouse({productId, qty, notes}){
       notes: notes || ""
     });
 
+    return st;
+  });
+}
+
+
+/* --- Ventas de Servicios (no afectan inventario) --- */
+function dpCreateServiceSale({clientId, concept, price, note="", iva=0, meta={}}){
+  return dpSetState(st => {
+    const ticket = dpId("T");
+    const at = dpNowISO();
+    const qty = 1;
+    const p = Number(price||0);
+    const subtotal = qty * p;
+    const ivaRate = Number(iva||0);
+    const ivaAmount = subtotal * (ivaRate/100);
+    const total = subtotal + ivaAmount;
+
+    st.sales = st.sales || [];
+    st.sales.unshift({
+      id: ticket,
+      type: "servicio",
+      subtype: meta.subtype || "",
+      at,
+      clientId: clientId || "C000",
+      note: note || "",
+      ivaRate,
+      subtotal,
+      ivaAmount,
+      total,
+      items: [{
+        productId: meta.productId || "SERV",
+        name: concept || "Servicio",
+        qty,
+        price: p,
+        total: subtotal
+      }],
+      meta
+    });
+    return st;
+  });
+}
+
+/* --- Membresías --- */
+function dpCalcEndDate(startISO, days){
+  const d = new Date(startISO);
+  d.setDate(d.getDate() + Number(days||0));
+  return d.toISOString().slice(0,10);
+}
+
+function dpCreateMembership({clientId, type, subtype, days, startDate, notes, price, saleTicketId=""}){
+  return dpSetState(st=>{
+    st.memberships = st.memberships || [];
+    const id = dpId("M");
+    const start = startDate || new Date().toISOString().slice(0,10);
+    const end = dpCalcEndDate(start, Number(days||0));
+    st.memberships.unshift({
+      id,
+      clientId: clientId || "C000",
+      type: type || "Mensual",
+      subtype: subtype || "Normal",
+      days: Number(days||0),
+      start,
+      end,
+      notes: notes || "",
+      price: Number(price||0),
+      saleTicketId: saleTicketId || "",
+      createdAt: dpNowISO()
+    });
+    return st;
+  });
+}
+
+function dpChargeMembership({clientId, type, subtype, days, startDate, notes, price, printTag=""}){
+  // 1) Create service sale for membership
+  const concept = `Membresía ${type}${subtype ? " ("+subtype+")" : ""} - ${days} días`;
+  dpCreateServiceSale({
+    clientId,
+    concept,
+    price,
+    note: notes || "",
+    iva: 0,
+    meta: { kind:"membership", type, subtype, days, startDate, printTag }
+  });
+
+  // 2) Link sale ticket id into membership record
+  const st = dpGetState();
+  const sale = (st.sales||[])[0];
+  const ticketId = sale ? sale.id : "";
+  dpCreateMembership({ clientId, type, subtype, days, startDate, notes, price, saleTicketId: ticketId });
+  return ticketId;
+}
+
+function dpDeleteMembership(id){
+  return dpSetState(st=>{
+    st.memberships = st.memberships || [];
+    st.memberships = st.memberships.filter(m=>m.id !== id);
     return st;
   });
 }
