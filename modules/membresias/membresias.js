@@ -267,11 +267,10 @@
     const concept = item?.name || "Servicio";
     const price = item?.price ?? sale.total;
 
-    // Si es membresía, imprimimos inicio/fin (viene guardado en sale.meta)
+    
     const ms = (sale.meta && sale.meta.kind==="membership") ? (sale.meta.startDate || "") : "";
     const me = (sale.meta && sale.meta.kind==="membership") ? (sale.meta.endDate || "") : "";
-
-    const lines = [
+const lines = [
       cfg.name,
       cfg.address,
       cfg.phone ? ("Tel: " + cfg.phone) : "",
@@ -289,8 +288,7 @@
       cfg.message
     ].filter(Boolean);
 
-    const pre = lines.join("
-");
+    const pre = lines.join("\n");
     const html = `
 <!DOCTYPE html>
 <html lang="es">
