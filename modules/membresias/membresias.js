@@ -1,135 +1,243 @@
-/* Membresías - Dinamita POS v0
-   - "Guardar y Cobrar" crea: 1) Venta (servicio) 2) Registro de membresía ligado a ticket
-   - IVA por defecto: 0
+/* Membresías - Dinamita POS v0 (restructurado)
+   - Catálogo editable: nombre, días, precio
+   - Cliente con súper buscador (picker)
+   - Cobro = venta tipo servicio (sin inventario) + registro de membresía ligado a ticket
 */
 (function(){
   const $ = (id)=>document.getElementById(id);
 
-  const elId = $("m-id");
-  const elMode = $("m-mode");
-  const elClient = $("m-client");
-  const elType = $("m-type");
-  const elSubtype = $("m-subtype");
-  const elDays = $("m-days");
-  const elStart = $("m-start");
-  const elEnd = $("m-end");
-  const elPrice = $("m-price");
-  const elNotes = $("m-notes");
-  const elStatus = $("m-status");
+  // Catalog
+  const mcToggle = $("mc-toggle");
+  const mcCard = $("mc-card");
+  const mcForm = $("mc-form");
+  const mcId = $("mc-id");
+  const mcName = $("mc-name");
+  const mcDays = $("mc-days");
+  const mcPrice = $("mc-price");
+  const mcClear = $("mc-clear");
+  const mcStatus = $("mc-status");
+  const mcList = $("mc-list");
 
-  const elMakeTicket = $("m-makeTicket");
-  const elPrint = $("m-print");
-  const elTicketPreview = $("m-ticketPreview");
+  // Enrollment
+  const mClientSearch = $("m-clientSearch");
+  const mClientPick = $("m-clientPick");
+  const mClientId = $("m-clientId");
+  const mClientPicked = $("m-clientPicked");
 
-  const elClear = $("m-clear");
-  const elSave = $("m-save");
-  const elCharge = $("m-charge");
+  const mPlan = $("m-plan");
+  const mOpenCatalog = $("m-openCatalog");
+  const mPlanHint = $("m-planHint");
+  const mDays = $("m-days");
+  const mStart = $("m-start");
+  const mEnd = $("m-end");
+  const mPrice = $("m-price");
+  const mNotes = $("m-notes");
+  const mStatus = $("m-status");
 
-  const elSearch = $("m-search");
-  const elFrom = $("m-from");
-  const elTo = $("m-to");
-  const elExportCsv = $("m-exportCsv");
-  const elExportPdf = $("m-exportPdf");
+  const mClear = $("m-clear");
+  const mSave = $("m-save");
+  const mCharge = $("m-charge");
 
-  const elList = $("m-list");
-  const elEmpty = $("m-empty");
+  const mMakeTicket = $("m-makeTicket");
+  const mPrint = $("m-print");
+  const mTicketPreview = $("m-ticketPreview");
+
+  // List
+  const mSearch = $("m-search");
+  const mFrom = $("m-from");
+  const mTo = $("m-to");
+  const mExportCsv = $("m-exportCsv");
+  const mExportPdf = $("m-exportPdf");
+  const mList = $("m-list");
+  const mEmpty = $("m-empty");
 
   let lastTicketHtml = "";
   let lastTicketTitle = "Ticket";
 
   function state(){ return dpGetState(); }
-
   function fmtMoney(n){ return dpFmtMoney ? dpFmtMoney(n) : ("$"+Number(n||0).toFixed(2)); }
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;");
+  }
 
-  function ensureDefaults(){
-    const st = state();
-    st.meta = st.meta || {};
-    if(!st.meta.membershipOptions){
-      st.meta.membershipOptions = {
-        durations: [1,7,30,183,365],
-        types: [
-          { name:"Visita", subtypes:["Normal","Socio","VIP"], defaultDays:1 },
-          { name:"Semana", subtypes:["Normal","Socio","VIP"], defaultDays:7 },
-          { name:"Mensual", subtypes:["Normal","Socio","VIP"], defaultDays:30 },
-          { name:"Medio Año", subtypes:["Normal"], defaultDays:183 },
-          { name:"Anual", subtypes:["Normal"], defaultDays:365 }
-        ]
+  // ---------- Catalog ----------
+  function toggleCatalog(show=null){
+    const isOpen = mcCard.style.display !== "none";
+    const next = show===null ? !isOpen : !!show;
+    mcCard.style.display = next ? "block" : "none";
+  }
+
+  function resetCatalogForm(){
+    mcId.value = "";
+    mcName.value = "";
+    mcDays.value = 30;
+    mcPrice.value = 0;
+    mcStatus.textContent = "";
+  }
+
+  function renderCatalog(){
+    const list = dpGetMembershipCatalog();
+    mcList.innerHTML = "";
+    list.slice(0, 500).forEach(p=>{
+      const div = document.createElement("div");
+      div.className = "citem";
+      div.innerHTML = `
+        <div class="cleft">
+          <div class="ctitle">${escapeHtml(p.name || "")}</div>
+          <div class="cmeta">
+            <span class="pill">${Number(p.days||0)} días</span>
+            <span class="pill">${fmtMoney(p.price||0)}</span>
+            <span class="pill">ID: ${p.id}</span>
+          </div>
+        </div>
+        <div class="cactions"></div>
+      `;
+      const actions = div.querySelector(".cactions");
+
+      const edit = document.createElement("button");
+      edit.className = "btn btn--ghost";
+      edit.textContent = "Editar";
+      edit.onclick = ()=>{
+        mcId.value = p.id;
+        mcName.value = p.name || "";
+        mcDays.value = Number(p.days||0) || 1;
+        mcPrice.value = Number(p.price||0) || 0;
+        mcStatus.textContent = "Editando: " + p.id;
+        window.scrollTo({top:0, behavior:"smooth"});
       };
-      dpSetState(s=> (Object.assign(s.meta, st.meta), s));
+
+      const del = document.createElement("button");
+      del.className = "btn";
+      del.textContent = "Borrar";
+      del.onclick = ()=>{
+        if(!confirm(`¿Borrar tipo "${p.name}"?`)) return;
+        dpDeleteMembershipPlan(p.id);
+        renderCatalog();
+        loadPlans();
+      };
+
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      mcList.appendChild(div);
+    });
+  }
+
+  function saveCatalog(e){
+    e.preventDefault();
+    const name = (mcName.value||"").trim();
+    const days = Number(mcDays.value||0);
+    const price = Number(mcPrice.value||0);
+    if(!name){ mcStatus.textContent = "Nombre requerido."; return; }
+    if(!Number.isFinite(days) || days<=0){ mcStatus.textContent = "Días inválidos."; return; }
+    if(!Number.isFinite(price) || price<0){ mcStatus.textContent = "Precio inválido."; return; }
+
+    if(mcId.value){
+      dpUpdateMembershipPlan(mcId.value, { name, days, price });
+      mcStatus.textContent = "Tipo actualizado.";
+    }else{
+      dpAddMembershipPlan({ name, days, price });
+      mcStatus.textContent = "Tipo agregado.";
+    }
+    renderCatalog();
+    loadPlans();
+    resetCatalogForm();
+  }
+
+  // ---------- Client search ----------
+  function getClients(){
+    const st = state();
+    const base = (st.clients && st.clients.length) ? st.clients : [{id:"GEN", name:"Cliente General", phone:""}];
+    return base.map(c=>({
+      ...c,
+      _search: `${(c.name||"").toLowerCase()} ${(c.phone||"").toLowerCase()} ${(c.id||"").toLowerCase()}`
+    }));
+  }
+
+  function showClientPicker(list){
+    if(!list || list.length===0){
+      mClientPick.style.display = "none";
+      mClientPick.innerHTML = "";
+      return;
+    }
+    mClientPick.style.display = "block";
+    mClientPick.innerHTML = "";
+    list.slice(0, 8).forEach(c=>{
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.innerHTML = `
+        <div><strong>${escapeHtml(c.name||"")}</strong></div>
+        <div class="sub">
+          <span>ID: ${escapeHtml(c.id||"")}</span>
+          <span>${escapeHtml(c.phone||"")}</span>
+        </div>
+      `;
+      btn.onclick = ()=>pickClient(c.id);
+      mClientPick.appendChild(btn);
+    });
+  }
+
+  function pickClient(id){
+    const c = getClients().find(x=>x.id===id);
+    if(!c) return;
+    mClientId.value = c.id;
+    mClientSearch.value = c.name || c.id;
+    mClientPicked.textContent = `Seleccionado: ${c.name || c.id} ${c.phone ? " | "+c.phone : ""}`;
+    showClientPicker([]);
+  }
+
+  function onClientSearch(){
+    const q = (mClientSearch.value||"").trim().toLowerCase();
+    mClientId.value = "";
+    mClientPicked.textContent = "";
+    if(!q){ showClientPicker([]); return; }
+    const list = getClients().filter(c=>c._search.includes(q));
+    showClientPicker(list);
+  }
+
+  // ---------- Plans selection ----------
+  function loadPlans(){
+    const list = dpGetMembershipCatalog();
+    mPlan.innerHTML = "";
+    list.forEach(p=>{
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.days} días) - ${fmtMoney(p.price)}`;
+      mPlan.appendChild(opt);
+    });
+    if(list.length){
+      mPlan.value = list[0].id;
+      syncPlanFields();
+    }else{
+      mDays.value = "";
+      mPrice.value = "";
+      mPlanHint.textContent = "No hay tipos. Agrega uno en Catálogo.";
     }
   }
 
-  function loadClients(){
-    const st = state();
-    const list = (st.clients && st.clients.length) ? st.clients : [{id:"GEN", name:"Cliente General"}];
-    elClient.innerHTML = "";
-    list.forEach(c=>{
-      const opt = document.createElement("option");
-      opt.value = c.id;
-      opt.textContent = c.name;
-      elClient.appendChild(opt);
-    });
-  }
-
-  function loadTypes(){
-    const st = state();
-    const types = st.meta?.membershipOptions?.types || [];
-    elType.innerHTML = "";
-    types.forEach(t=>{
-      const opt = document.createElement("option");
-      opt.value = t.name;
-      opt.textContent = t.name;
-      elType.appendChild(opt);
-    });
-  }
-
-  function setSubtypesAndDefaults(){
-    const st = state();
-    const types = st.meta?.membershipOptions?.types || [];
-    const t = types.find(x=>x.name===elType.value) || types[0];
-    const subs = t?.subtypes || ["Normal"];
-    elSubtype.innerHTML = "";
-    subs.forEach(s=>{
-      const opt = document.createElement("option");
-      opt.value = s;
-      opt.textContent = s;
-      elSubtype.appendChild(opt);
-    });
-    if(t?.defaultDays){
-      elDays.value = String(t.defaultDays);
+  function syncPlanFields(){
+    const plan = dpFindMembershipPlanById(mPlan.value);
+    if(!plan){
+      mPlanHint.textContent = "Plan no encontrado.";
+      return;
     }
+    mDays.value = String(Number(plan.days||0));
+    mPrice.value = String(Number(plan.price||0));
+    mPlanHint.textContent = `Duración: ${plan.days} días | Precio: ${fmtMoney(plan.price)}`;
     recalcEnd();
   }
 
   function recalcEnd(){
-    const s = new Date(elStart.value);
-    if(!elStart.value || isNaN(s.getTime())) return;
-    s.setDate(s.getDate() + Number(elDays.value||0));
-    elEnd.value = s.toISOString().slice(0,10);
+    if(!mStart.value) return;
+    const s = new Date(mStart.value);
+    if(isNaN(s.getTime())) return;
+    s.setDate(s.getDate() + Number(mDays.value||0));
+    mEnd.value = s.toISOString().slice(0,10);
   }
 
-  function resetForm(){
-    elId.value = "";
-    elMode.textContent = "Modo: Alta";
-    elDays.value = "30";
-    elStart.value = new Date().toISOString().slice(0,10);
-    recalcEnd();
-    elPrice.value = "0";
-    elNotes.value = "";
-    elStatus.textContent = "";
-    elTicketPreview.textContent = "Sin ticket.";
-    lastTicketHtml = "";
-    elPrint.disabled = true;
-  }
-
-  function getClientName(clientId){
-    const st = state();
-    const c = (st.clients||[]).find(x=>x.id===clientId);
-    if(c) return c.name;
-    if(clientId === "GEN") return "Cliente General";
-    return clientId || "Cliente";
-  }
-
+  // ---------- Ticket helpers ----------
   function getConfig(){
     const st = state();
     const cfg = st.config || {};
@@ -142,6 +250,14 @@
       message: ticket.message || "Gracias por tu compra en Dinamita Gym 💥",
       ivaLabel: ticket.ivaLabel || "IVA: 0%"
     };
+  }
+
+  function getClientName(clientId){
+    const st = state();
+    const c = (st.clients||[]).find(x=>x.id===clientId);
+    if(c) return c.name;
+    if(clientId === "GEN") return "Cliente General";
+    return clientId || "Cliente";
   }
 
   function buildTicketHtmlFromSale(sale){
@@ -167,9 +283,7 @@
       cfg.message
     ].filter(Boolean);
 
-    // Render as pre text (for preview) and also printable HTML
     const pre = lines.join("\n");
-
     const html = `
 <!DOCTYPE html>
 <html lang="es">
@@ -181,7 +295,6 @@
   body{ font-family: ui-monospace, Menlo, Consolas, monospace; padding:12px; }
   .ticket{ max-width:320px; }
   pre{ white-space:pre-wrap; font-size:12px; line-height:1.25; margin:0; }
-  .btns{ margin-top:10px; display:none; }
   @media print{ body{ padding:0; } }
 </style>
 </head>
@@ -192,13 +305,6 @@
 </html>`;
 
     return { pre, html, title: sale.id };
-  }
-
-  function escapeHtml(s){
-    return String(s)
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;");
   }
 
   function openPrintWindow(html, title){
@@ -212,47 +318,84 @@
     w.print();
   }
 
-  function saveOnly(){
-    const clientId = elClient.value;
-    const type = elType.value;
-    const subtype = elSubtype.value;
-    const days = Number(elDays.value||0);
-    const start = elStart.value;
-    const notes = elNotes.value.trim();
-    const price = Number(elPrice.value||0);
+  // ---------- Actions ----------
+  function resetForm(){
+    mClientSearch.value = "";
+    mClientId.value = "";
+    mClientPicked.textContent = "";
+    showClientPicker([]);
 
-    dpCreateMembership({ clientId, type, subtype, days, startDate: start, notes, price, saleTicketId:"" });
-    elStatus.textContent = "Membresía guardada (sin cobro).";
+    mStart.value = new Date().toISOString().slice(0,10);
+    syncPlanFields();
+    mNotes.value = "";
+    mStatus.textContent = "";
+    mTicketPreview.textContent = "Sin ticket.";
+    lastTicketHtml = "";
+    mPrint.disabled = true;
+  }
+
+  function ensureClientSelected(){
+    if(mClientId.value) return true;
+    const typed = (mClientSearch.value||"").trim();
+    if(!typed){
+      alert("Selecciona un cliente.");
+      return false;
+    }
+    if(typed.toLowerCase().includes("general") || typed.toLowerCase()==="gen"){
+      mClientId.value = "GEN";
+      return true;
+    }
+    alert("Selecciona el cliente desde el buscador (picker).");
+    return false;
+  }
+
+  function saveOnly(){
+    if(!ensureClientSelected()) return;
+    const plan = dpFindMembershipPlanById(mPlan.value);
+    if(!plan){ alert("Selecciona un tipo de membresía."); return; }
+
+    dpCreateMembership({
+      clientId: mClientId.value,
+      planId: plan.id,
+      planName: plan.name,
+      days: Number(plan.days||0),
+      startDate: mStart.value,
+      notes: (mNotes.value||"").trim(),
+      price: Number(plan.price||0),
+      saleTicketId: ""
+    });
+    mStatus.textContent = "Membresía guardada (sin cobro).";
     renderList();
   }
 
   function charge(){
-    const clientId = elClient.value;
-    const type = elType.value;
-    const subtype = elSubtype.value;
-    const days = Number(elDays.value||0);
-    const start = elStart.value;
-    const notes = elNotes.value.trim();
-    const price = Number(elPrice.value||0);
+    if(!ensureClientSelected()) return;
+    const plan = dpFindMembershipPlanById(mPlan.value);
+    if(!plan){ alert("Selecciona un tipo de membresía."); return; }
 
-    const ticketId = dpChargeMembership({ clientId, type, subtype, days, startDate: start, notes, price });
+    const ticketId = dpChargeMembership({
+      clientId: mClientId.value,
+      planId: plan.id,
+      startDate: mStart.value,
+      notes: (mNotes.value||"").trim()
+    });
 
-    const st = state();
-    const sale = (st.sales||[]).find(s=>s.id===ticketId) || (st.sales||[])[0];
-
-    elStatus.textContent = "Membresía cobrada. Ticket: " + (ticketId||"");
+    mStatus.textContent = "Membresía cobrada. Ticket: " + (ticketId||"");
     renderList();
 
-    if(elMakeTicket.checked && sale){
-      const t = buildTicketHtmlFromSale(sale);
-      elTicketPreview.textContent = t.pre;
-      lastTicketHtml = t.html;
-      lastTicketTitle = t.title;
-      elPrint.disabled = false;
+    if(mMakeTicket.checked && ticketId){
+      const sale = (state().sales||[]).find(s=>s.id===ticketId);
+      if(sale){
+        const t = buildTicketHtmlFromSale(sale);
+        mTicketPreview.textContent = t.pre;
+        lastTicketHtml = t.html;
+        lastTicketTitle = t.title;
+        mPrint.disabled = false;
+      }
     }else{
-      elTicketPreview.textContent = "Sin ticket.";
+      mTicketPreview.textContent = "Sin ticket.";
       lastTicketHtml = "";
-      elPrint.disabled = true;
+      mPrint.disabled = true;
     }
   }
 
@@ -267,17 +410,20 @@
 
   function renderList(){
     const st = state();
-    const q = (elSearch.value||"").trim().toLowerCase();
-    const from = elFrom.value ? new Date(elFrom.value) : null;
-    const to = elTo.value ? new Date(elTo.value) : null;
+    const q = (mSearch.value||"").trim().toLowerCase();
+    const from = mFrom.value ? new Date(mFrom.value) : null;
+    const to = mTo.value ? new Date(mTo.value) : null;
 
     let list = st.memberships || [];
+
     if(q){
       list = list.filter(m=>{
         const name = getClientName(m.clientId).toLowerCase();
         return (m.id||"").toLowerCase().includes(q) ||
                (m.clientId||"").toLowerCase().includes(q) ||
-               name.includes(q);
+               name.includes(q) ||
+               (m.saleTicketId||"").toLowerCase().includes(q) ||
+               (m.planName||"").toLowerCase().includes(q);
       });
     }
     if(from){
@@ -289,14 +435,14 @@
       list = list.filter(m=> new Date(m.start) <= t);
     }
 
-    elList.innerHTML = "";
+    mList.innerHTML = "";
     if(!list.length){
-      elEmpty.style.display = "block";
+      mEmpty.style.display = "block";
       return;
     }
-    elEmpty.style.display = "none";
+    mEmpty.style.display = "none";
 
-    list.slice(0, 300).forEach(m=>{
+    list.slice(0, 400).forEach(m=>{
       const div = document.createElement("div");
       div.className = "mcard";
 
@@ -304,14 +450,15 @@
       left.className = "mleft";
       const cls = pillClass(m.end);
       left.innerHTML = `
-        <div class="mtitle">${getClientName(m.clientId)}</div>
+        <div class="mtitle">${escapeHtml(getClientName(m.clientId))}</div>
         <div class="msub">
-          <span class="pill ${cls}">${m.type} ${m.subtype}</span>
+          <span class="pill ${cls}">${escapeHtml(m.planName || "Membresía")}</span>
           <span class="pill">Inicio: ${m.start}</span>
           <span class="pill">Fin: ${m.end}</span>
           <span class="pill">${m.days} días</span>
           <span class="pill">${fmtMoney(m.price||0)}</span>
           ${m.saleTicketId ? `<span class="pill">Ticket: ${m.saleTicketId}</span>` : `<span class="pill">Sin cobro</span>`}
+          <span class="pill">ID: ${m.id}</span>
         </div>
         ${m.notes ? `<div class="msub"><span class="pill">Nota: ${escapeHtml(m.notes)}</span></div>` : ""}
       `;
@@ -344,20 +491,20 @@
 
       div.appendChild(left);
       div.appendChild(actions);
-      elList.appendChild(div);
+      mList.appendChild(div);
     });
   }
 
   function exportCsv(){
     const st = state();
-    const rows = [["id","clientId","clientName","type","subtype","days","start","end","price","saleTicketId","notes"]];
+    const rows = [["id","clientId","clientName","planId","planName","days","start","end","price","saleTicketId","notes"]];
     (st.memberships||[]).forEach(m=>{
       rows.push([
         m.id,
         m.clientId,
         getClientName(m.clientId),
-        m.type,
-        m.subtype,
+        m.planId,
+        m.planName,
         m.days,
         m.start,
         m.end,
@@ -376,7 +523,6 @@
   }
 
   function exportPdf(){
-    // Simple: print current list view
     const html = `
 <!DOCTYPE html>
 <html lang="es">
@@ -387,13 +533,12 @@
   body{ font-family: Arial, sans-serif; padding:16px; }
   h1{ margin:0 0 10px 0; }
   .item{ border:1px solid #ddd; border-radius:10px; padding:10px; margin-bottom:10px; }
-  .meta{ font-size:12px; color:#444; margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; }
   .pill{ border:1px solid #ddd; border-radius:999px; padding:2px 8px; }
 </style>
 </head>
 <body>
 <h1>Membresías</h1>
-${Array.from(elList.children).map(n=>`<div class="item">${n.querySelector(".mleft")?.innerHTML || ""}</div>`).join("")}
+${Array.from(mList.children).map(n=>`<div class="item">${n.querySelector(".mleft")?.innerHTML || ""}</div>`).join("")}
 <script>window.focus();</script>
 </body>
 </html>`;
@@ -406,39 +551,38 @@ ${Array.from(elList.children).map(n=>`<div class="item">${n.querySelector(".mlef
     w.print();
   }
 
-  // Wire up
-  ensureDefaults();
-  loadClients();
-  loadTypes();
-  setSubtypesAndDefaults();
+  // --- Events ---
+  mcToggle.addEventListener("click", ()=>toggleCatalog());
+  mOpenCatalog.addEventListener("click", ()=>toggleCatalog(true));
+  mcClear.addEventListener("click", resetCatalogForm);
+  mcForm.addEventListener("submit", saveCatalog);
 
-  elStart.value = new Date().toISOString().slice(0,10);
-  recalcEnd();
+  mClientSearch.addEventListener("input", onClientSearch);
 
-  elType.addEventListener("change", setSubtypesAndDefaults);
-  elDays.addEventListener("input", recalcEnd);
-  elStart.addEventListener("change", recalcEnd);
+  mPlan.addEventListener("change", syncPlanFields);
+  mStart.addEventListener("change", recalcEnd);
 
-  elClear.addEventListener("click", ()=>{ resetForm(); renderList(); });
-  elSave.addEventListener("click", (e)=>{ e.preventDefault(); saveOnly(); });
-  elCharge.addEventListener("click", (e)=>{ e.preventDefault(); charge(); });
+  mClear.addEventListener("click", ()=>{ resetForm(); renderList(); });
+  mSave.addEventListener("click", saveOnly);
+  mCharge.addEventListener("click", charge);
 
-  elPrint.addEventListener("click", ()=>{
+  mPrint.addEventListener("click", ()=>{
     if(!lastTicketHtml) return;
     openPrintWindow(lastTicketHtml, lastTicketTitle);
   });
 
-  elSearch.addEventListener("input", renderList);
-  elFrom.addEventListener("change", renderList);
-  elTo.addEventListener("change", renderList);
-  elExportCsv.addEventListener("click", exportCsv);
-  elExportPdf.addEventListener("click", exportPdf);
+  mSearch.addEventListener("input", renderList);
+  mFrom.addEventListener("change", renderList);
+  mTo.addEventListener("change", renderList);
+  mExportCsv.addEventListener("click", exportCsv);
+  mExportPdf.addEventListener("click", exportPdf);
 
-  // Init range defaults
-  const today = new Date().toISOString().slice(0,10);
-  elFrom.value = "";
-  elTo.value = "";
-
-  renderList();
+  // Init
+  if(typeof dpEnsureSeedData === "function"){ try{ dpEnsureSeedData(); }catch(e){} }
+  renderCatalog();
+  loadPlans();
+  mStart.value = new Date().toISOString().slice(0,10);
+  syncPlanFields();
   resetForm();
+  renderList();
 })();

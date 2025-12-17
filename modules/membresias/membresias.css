@@ -112,3 +112,19 @@
   .mem__grid{ grid-template-columns: 1fr; }
   .card__head{ flex-direction:column; align-items:stretch; }
 }
+
+.mem__header{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.pick{ margin-top:8px; border:1px solid #eee; border-radius:12px; overflow:hidden; }
+.pick button{ width:100%; text-align:left; padding:10px; border:none; background:#fff; cursor:pointer; border-bottom:1px solid #f1f1f1; }
+.pick button:hover{ background:#fafafa; }
+.pick .sub{ display:flex; gap:8px; flex-wrap:wrap; font-size:12px; color:#666; margin-top:4px; }
+.pick .sub span{ background:#f7f7f7; border:1px solid #eee; padding:2px 6px; border-radius:999px; }
+.catalog{ margin-top:12px; }
+.catalogForm{ margin-bottom:10px; }
+.catalogList{ display:flex; flex-direction:column; gap:10px; }
+.citem{ border:1px solid #eee; border-radius:12px; padding:10px; display:flex; gap:10px; align-items:flex-start; }
+.cleft{ flex:1; min-width:0; }
+.ctitle{ font-weight:900; }
+.cmeta{ margin-top:4px; font-size:12px; color:#666; display:flex; gap:8px; flex-wrap:wrap; }
+.cactions{ display:flex; flex-direction:column; gap:6px; align-items:flex-end; }
+.cactions .btn{ width:140px; }

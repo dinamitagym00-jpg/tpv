@@ -39,7 +39,9 @@ function dpDefaultState(){
       membershipOptions: {
         durations: [1,7,30,183,365],
         types: [
-          { name:'Visita', subtypes:['Normal','Socio','VIP'], defaultDays:1 },
+          { name:'Visita', subtypes:['Normal','Socio','VIP'], defaultDays:1,
+      membershipCatalog: [{"id": "MP001", "name": "Anualidad", "days": 365, "price": 2400}, {"id": "MP002", "name": "Medio año", "days": 182, "price": 1500}, {"id": "MP003", "name": "Mes normal", "days": 30, "price": 350}, {"id": "MP004", "name": "Mes socio", "days": 30, "price": 300}, {"id": "MP005", "name": "Mes VIP", "days": 30, "price": 250}, {"id": "MP006", "name": "Semana normal", "days": 7, "price": 150}, {"id": "MP007", "name": "Semana socio", "days": 7, "price": 130}, {"id": "MP008", "name": "Semana VIP", "days": 7, "price": 100}, {"id": "MP009", "name": "Visita normal", "days": 1, "price": 40}, {"id": "MP010", "name": "Visita socio", "days": 1, "price": 30}, {"id": "MP011", "name": "Visita VIP", "days": 1, "price": 25}]
+    },
           { name:'Semana', subtypes:['Normal','Socio','VIP'], defaultDays:7 },
           { name:'Mensual', subtypes:['Normal','Socio','VIP'], defaultDays:30 },
           { name:'Medio Año', subtypes:['Normal'], defaultDays:183 },
@@ -243,6 +245,9 @@ function dpDeleteWarehouseEntry(entryId){
 function dpEnsureSeedData(){
   return dpSetState(st=>{
     st.meta = st.meta || {};
+    st.meta.membershipCatalog = st.meta.membershipCatalog || [];
+    if(st.meta.membershipCatalog.length===0){ st.meta.membershipCatalog = [{"id": "MP001", "name": "Anualidad", "days": 365, "price": 2400}, {"id": "MP002", "name": "Medio año", "days": 182, "price": 1500}, {"id": "MP003", "name": "Mes normal", "days": 30, "price": 350}, {"id": "MP004", "name": "Mes socio", "days": 30, "price": 300}, {"id": "MP005", "name": "Mes VIP", "days": 30, "price": 250}, {"id": "MP006", "name": "Semana normal", "days": 7, "price": 150}, {"id": "MP007", "name": "Semana socio", "days": 7, "price": 130}, {"id": "MP008", "name": "Semana VIP", "days": 7, "price": 100}, {"id": "MP009", "name": "Visita normal", "days": 1, "price": 40}, {"id": "MP010", "name": "Visita socio", "days": 1, "price": 30}, {"id": "MP011", "name": "Visita VIP", "days": 1, "price": 25}]; }
+
     st.meta.categories = st.meta.categories || ['suplemento','agua','accesorio'];
     st.products = st.products || [];
     if(st.products.length === 0){
@@ -430,7 +435,7 @@ function dpCalcEndDate(startISO, days){
   return d.toISOString().slice(0,10);
 }
 
-function dpCreateMembership({clientId, type, subtype, days, startDate, notes, price, saleTicketId=""}){
+function dpCreateMembership({clientId, planId, planName, days, startDate, notes, price, saleTicketId=""}){
   return dpSetState(st=>{
     st.memberships = st.memberships || [];
     const id = dpId("M");
@@ -439,8 +444,8 @@ function dpCreateMembership({clientId, type, subtype, days, startDate, notes, pr
     st.memberships.unshift({
       id,
       clientId: clientId || "C000",
-      type: type || "Mensual",
-      subtype: subtype || "Normal",
+      planId: planId || "",
+      planName: planName || "",
       days: Number(days||0),
       start,
       end,
@@ -453,23 +458,37 @@ function dpCreateMembership({clientId, type, subtype, days, startDate, notes, pr
   });
 }
 
-function dpChargeMembership({clientId, type, subtype, days, startDate, notes, price, printTag=""}){
-  // 1) Create service sale for membership
-  const concept = `Membresía ${type}${subtype ? " ("+subtype+")" : ""} - ${days} días`;
+function dpChargeMembership({clientId, planId, startDate, notes, printTag=""}){
+  const plan = dpFindMembershipPlanById(planId);
+  const name = plan ? plan.name : "Membresía";
+  const days = plan ? Number(plan.days||0) : 0;
+  const price = plan ? Number(plan.price||0) : 0;
+
+  const concept = `${name} - ${days} días`;
   dpCreateServiceSale({
     clientId,
     concept,
     price,
     note: notes || "",
     iva: 0,
-    meta: { kind:"membership", type, subtype, days, startDate, printTag }
+    meta: { kind:"membership", planId, planName: name, days, startDate, printTag }
   });
 
-  // 2) Link sale ticket id into membership record
   const st = dpGetState();
   const sale = (st.sales||[])[0];
   const ticketId = sale ? sale.id : "";
-  dpCreateMembership({ clientId, type, subtype, days, startDate, notes, price, saleTicketId: ticketId });
+
+  dpCreateMembership({
+    clientId,
+    planId,
+    planName: name,
+    days,
+    startDate,
+    notes,
+    price,
+    saleTicketId: ticketId
+  });
+
   return ticketId;
 }
 
@@ -479,4 +498,58 @@ function dpDeleteMembership(id){
     st.memberships = st.memberships.filter(m=>m.id !== id);
     return st;
   });
+}
+
+
+/* --- Catálogo de Membresías --- */
+function dpGetMembershipCatalog(){
+  const st = dpGetState();
+  st.meta = st.meta || {};
+  st.meta.membershipCatalog = st.meta.membershipCatalog || [];
+  return st.meta.membershipCatalog;
+}
+
+function dpAddMembershipPlan({name, days, price}){
+  return dpSetState(st=>{
+    st.meta = st.meta || {};
+    st.meta.membershipCatalog = st.meta.membershipCatalog || [];
+    const id = dpId("MP");
+    st.meta.membershipCatalog.unshift({
+      id,
+      name: String(name||"").trim(),
+      days: Number(days||0),
+      price: Number(price||0),
+      createdAt: dpNowISO()
+    });
+    return st;
+  });
+}
+
+function dpUpdateMembershipPlan(id, updates){
+  return dpSetState(st=>{
+    st.meta = st.meta || {};
+    st.meta.membershipCatalog = st.meta.membershipCatalog || [];
+    const p = st.meta.membershipCatalog.find(x=>x.id===id);
+    if(!p) return st;
+    if(updates.name !== undefined) p.name = String(updates.name||"").trim();
+    if(updates.days !== undefined) p.days = Number(updates.days||0);
+    if(updates.price !== undefined) p.price = Number(updates.price||0);
+    p.updatedAt = dpNowISO();
+    return st;
+  });
+}
+
+function dpDeleteMembershipPlan(id){
+  return dpSetState(st=>{
+    st.meta = st.meta || {};
+    st.meta.membershipCatalog = st.meta.membershipCatalog || [];
+    st.meta.membershipCatalog = st.meta.membershipCatalog.filter(x=>x.id!==id);
+    return st;
+  });
+}
+
+function dpFindMembershipPlanById(id){
+  const st = dpGetState();
+  const list = st.meta?.membershipCatalog || [];
+  return list.find(x=>x.id===id) || null;
 }
