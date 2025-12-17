@@ -471,7 +471,7 @@ function dpChargeMembership({clientId, planId, startDate, notes, printTag=""}){
     price,
     note: notes || "",
     iva: 0,
-    meta: { kind:"membership", planId, planName: name, days, startDate, printTag }
+    meta: { kind:"membership", planId, planName: name, days, startDate, printTag , endDate: dpCalcEndDate(startDate, days) }
   });
 
   const st = dpGetState();
