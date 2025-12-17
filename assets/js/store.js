@@ -652,3 +652,62 @@ function dpDeleteSale(ticketId){
     return st;
   });
 }
+function dpGetSalesRows({from="", to=""}={}){
+  const st = dpGetState();
+  const rows = [];
+  const inRange = (iso)=>{
+    if(!from && !to) return true;
+    const d = new Date(iso);
+    if(isNaN(d.getTime())) return true;
+    if(from){
+      const f = new Date(from);
+      if(d < f) return false;
+    }
+    if(to){
+      const t = new Date(to);
+      t.setHours(23,59,59,999);
+      if(d > t) return false;
+    }
+    return true;
+  };
+
+  for(const s of (st.sales||[])){
+    if(!inRange(s.at)) continue;
+    if(s.type === "venta"){
+      for(const it of (s.items||[])){
+        rows.push({
+          kind: "venta",
+          date: (s.at||"").slice(0,10),
+          at: s.at,
+          ticket: s.id,
+          clientId: s.clientId || "",
+          productId: it.productId || "",
+          product: dpFindProductById(it.productId)?.name || it.productId || "",
+          category: dpFindProductById(it.productId)?.category || "",
+          unitPrice: Number(it.price||0),
+          qty: Number(it.qty||0),
+          total: Number(it.total|| (Number(it.price||0)*Number(it.qty||0))),
+        });
+      }
+    }else{
+      const item = (s.items||[])[0] || {};
+      const concept = item.name || "Servicio";
+      const price = Number(item.price ?? s.total ?? 0);
+      rows.push({
+        kind: (s.meta && s.meta.kind==="membership") ? "membresia" : "servicio",
+        date: (s.at||"").slice(0,10),
+        at: s.at,
+        ticket: s.id,
+        clientId: s.clientId || "",
+        productId: "",
+        product: concept,
+        category: (s.meta && s.meta.kind==="membership") ? "Membresías" : "Servicios",
+        unitPrice: price,
+        qty: 1,
+        total: Number(s.total ?? price),
+        meta: s.meta || {}
+      });
+    }
+  }
+  return rows;
+}
