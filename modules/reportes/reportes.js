@@ -228,7 +228,7 @@
         if(!byTicket[key]) byTicket[key] = {date:r.date,ticket:r.ticket,kind:r.kind,client:getClientName(r.clientId),total:0};
         byTicket[key].total += Number(r.total||0);
       }
-      data = Object.values(byTicket).map(x=>[x.date,x.ticket,x.kind,x.client,(x.pay||""),x.total]);
+      data = Object.values(byTicket).map(x=>[x.date,x.ticket,x.kind,getClientName(x.client),x.total]);
     }else if(type==="productos"){
       headers = ["fecha","ticket","cliente","pago","producto","categoria","precio_unitario","piezas","total"];
       data = rows.filter(r=>r.kind==="venta").map(r=>[r.date,r.ticket,getClientName(r.clientId),(r.paymentMethod||""),r.product,r.category,r.unitPrice,r.qty,r.total]);

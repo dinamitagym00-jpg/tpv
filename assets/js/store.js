@@ -122,7 +122,7 @@ function dpRecordProductViewed(st, productId){
   st.analytics.recentProducts = dpPushUnique(st.analytics.recentProducts || [], productId, 20);
 }
 
-function dpCreateSale({clientId, cartItems, note, iva=0}){
+function dpCreateSale({clientId, cartItems, note, iva=0, paymentMethod="efectivo"}){
   return dpSetState(st => {
     const ticket = dpId("T");
     const at = dpNowISO();
@@ -149,6 +149,7 @@ function dpCreateSale({clientId, cartItems, note, iva=0}){
     st.sales.unshift({
       id: ticket,
       type: "venta",
+      paymentMethod: paymentMethod || "efectivo",
       at,
       clientId: clientId || "C000",
       note: note || "",
@@ -700,8 +701,8 @@ function dpGetSalesRows({from="", to=""}={}){
         at: s.at,
         ticket: s.id,
         clientId: s.clientId || "",
+          paymentMethod: (s.paymentMethod||""),
         productId: "",
-        paymentMethod: (s.paymentMethod||""),
         product: concept,
         category: (s.meta && s.meta.kind==="membership") ? "Membresías" : "Servicios",
         unitPrice: price,
