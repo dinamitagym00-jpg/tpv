@@ -622,3 +622,33 @@ function dpGetClientById(id){
   const st = dpGetState();
   return (st.clients||[]).find(c=>c.id===id) || null;
 }
+
+
+function dpDeleteSale(ticketId){
+  return dpSetState(st=>{
+    st.sales = st.sales || [];
+    const idx = st.sales.findIndex(s=>s.id===ticketId);
+    if(idx===-1) return st;
+    const sale = st.sales[idx];
+
+    // Restore inventory ONLY for product sales
+    if(sale.type === "venta"){
+      for(const it of (sale.items||[])){
+        const p = (st.products||[]).find(x=>x.id===it.productId);
+        if(p){
+          p.stock = Number(p.stock||0) + Number(it.qty||0);
+          p.updatedAt = dpNowISO();
+        }
+      }
+    }
+
+    // If it's a membership service, delete the linked membership record(s)
+    if(sale.meta && sale.meta.kind === "membership"){
+      st.memberships = (st.memberships||[]).filter(m=>m.saleTicketId !== ticketId);
+    }
+
+    // Remove the sale
+    st.sales.splice(idx,1);
+    return st;
+  });
+}
