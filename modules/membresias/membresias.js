@@ -267,6 +267,10 @@
     const concept = item?.name || "Servicio";
     const price = item?.price ?? sale.total;
 
+    // Si es membresía, imprimimos inicio/fin (viene guardado en sale.meta)
+    const ms = (sale.meta && sale.meta.kind==="membership") ? (sale.meta.startDate || "") : "";
+    const me = (sale.meta && sale.meta.kind==="membership") ? (sale.meta.endDate || "") : "";
+
     const lines = [
       cfg.name,
       cfg.address,
@@ -277,13 +281,16 @@
       "Cliente: " + clientName,
       "------------------------------",
       concept,
+      (ms ? ("Inicio: " + ms) : ""),
+      (me ? ("Fin: " + me) : ""),
       "Total: " + fmtMoney(price),
       cfg.ivaLabel,
       "------------------------------",
       cfg.message
     ].filter(Boolean);
 
-    const pre = lines.join("\n");
+    const pre = lines.join("
+");
     const html = `
 <!DOCTYPE html>
 <html lang="es">
