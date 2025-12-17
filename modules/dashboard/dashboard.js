@@ -6,6 +6,17 @@
     const v = Number(n||0);
     return v.toLocaleString("es-MX",{ style:"currency", currency:"MXN" });
   }
+  const PALETTE = [
+    "rgba(185, 28, 28, 0.85)",
+    "rgba(220, 38, 38, 0.75)",
+    "rgba(244, 63, 94, 0.70)",
+    "rgba(234, 88, 12, 0.70)",
+    "rgba(245, 158, 11, 0.70)",
+    "rgba(34, 197, 94, 0.70)",
+    "rgba(59, 130, 246, 0.70)",
+    "rgba(168, 85, 247, 0.70)",
+  ];
+
   function ymd(d){
     return d.toISOString().slice(0,10);
   }
@@ -134,7 +145,7 @@
       const y = pad + chartH - bh;
       const bw = barW*0.6;
 
-      ctx.fillStyle = "rgba(185,28,28,.70)"; // rojo Dinamita suave
+      ctx.fillStyle = PALETTE[i % PALETTE.length];
       ctx.fillRect(x,y,bw,bh);
 
       // labels (tiny)
@@ -163,7 +174,7 @@
       // simple palette using alpha only (no hard-coded different colors)
       ctx.beginPath();
       ctx.moveTo(cx,cy);
-      ctx.fillStyle = `rgba(185,28,28,${0.25 + (idx%5)*0.12})`;
+      ctx.fillStyle = PALETTE[idx % PALETTE.length];
       ctx.arc(cx,cy,r,ang,a2);
       ctx.closePath();
       ctx.fill();
@@ -182,7 +193,7 @@
     ctx.textAlign = "center";
     ctx.fillText("Total", cx, cy-4*devicePixelRatio);
     ctx.font = `${16*devicePixelRatio}px ui-sans-serif`;
-    ctx.fillText(money(total/devicePixelRatio), cx, cy+18*devicePixelRatio);
+    ctx.fillText(money(total), cx, cy+18*devicePixelRatio);
     ctx.textAlign = "start";
   }
 
@@ -309,9 +320,12 @@
   const btn = $("#dp-dash-refresh");
   if(btn) btn.addEventListener("click", refresh);
 
-  // Re-render charts on resize
-  const ro = new ResizeObserver(()=>{ try{ refresh(); }catch(e){ console.warn(e); } });
-  ro.observe(document.body);
+  // Re-render charts on window resize (debounced to avoid loops)
+  let _rz;
+  window.addEventListener("resize", ()=>{
+    clearTimeout(_rz);
+    _rz = setTimeout(()=>{ try{ refresh(); }catch(e){ console.warn(e); } }, 120);
+  });
 
   refresh();
 })();
