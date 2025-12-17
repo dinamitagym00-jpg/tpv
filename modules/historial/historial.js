@@ -33,17 +33,21 @@
   }
 
   function getConfig(){
+    const biz = (typeof dpGetBizInfo === "function") ? dpGetBizInfo() : { name:"DINÁMITA GYM" };
+    const tcfg = (typeof dpGetTicketCfg === "function") ? dpGetTicketCfg() : { message:"Gracias por tu compra en Dinamita Gym 💥" };
     const st = state();
-    const cfg = st.config || {};
-    const biz = cfg.business || {};
-    const ticket = cfg.ticket || {};
+    const ticket = st.config?.ticket || {};
     return {
+      logoDataUrl: biz.logoDataUrl || "",
       name: biz.name || "DINÁMITA GYM",
       address: biz.address || "",
       phone: biz.phone || "",
-      message: ticket.message || "Gracias por tu compra en Dinamita Gym 💥",
-      ivaLabel: ticket.ivaLabel || "IVA: 0%"
+      email: biz.email || "",
+      social: biz.social || "",
+      message: ticket.message || tcfg.message,
+      ivaLabel: "IVA: 0%"
     };
+  };
   }
 
   function getClientName(clientId){
@@ -79,10 +83,13 @@
       cfg.name,
       cfg.address,
       cfg.phone ? ("Tel: " + cfg.phone) : "",
+      cfg.email ? ("Email: " + cfg.email) : "",
+      cfg.social ? ("Redes: " + cfg.social) : "",
       "------------------------------",
       "TICKET: " + sale.id,
       "Fecha: " + (sale.at || "").replace("T"," ").slice(0,19),
       "Cliente: " + clientName,
+      "Pago: " + (sale.paymentMethod || "efectivo"),
       "------------------------------"
     ].filter(Boolean);
 
@@ -127,7 +134,10 @@
 </style>
 </head>
 <body>
-<div class="ticket"><pre>${escapeHtml(pre)}</pre></div>
+<div class="ticket">
+  ${cfg.logoDataUrl ? `<div style="text-align:center;margin-bottom:6px;"><img src="${cfg.logoDataUrl}" style="max-width:120px;max-height:60px;object-fit:contain;" /></div>` : ""}
+  <pre>${escapeHtml(pre)}</pre>
+</div>
 <script>window.focus();</script>
 </body>
 </html>`;

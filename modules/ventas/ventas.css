@@ -158,3 +158,5 @@
 .ticket .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ticket .t-item .r{ flex:0 0 auto; font-weight:800; }
 .ticket .t-big{ font-size:14px; font-weight:900; }
+
+.t-logo{ max-width:120px; max-height:60px; object-fit:contain; margin:6px auto; display:block; }

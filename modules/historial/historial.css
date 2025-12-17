@@ -19,3 +19,5 @@
 .badge{ border:1px solid #eee; padding:2px 8px; border-radius:999px; background:#fafafa; }
 .badge.red{ border-color:#ffd0d0; background:#fff2f2; }
 .badge.blue{ border-color:#cfe6ff; background:#f2f8ff; }
+
+.t-logo{ max-width:120px; max-height:60px; object-fit:contain; margin:6px auto; display:block; }

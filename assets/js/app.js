@@ -1,5 +1,6 @@
 try{ dpEnsureSeedData(); }catch(e){ console.warn(e); }
 try{ dpApplyTheme(); }catch(e){ console.warn(e); }
+try{ dpRenderBranding(); }catch(e){ console.warn(e); }
 /* Dinamita POS v0 - App Loader
    Versión: v0.1.1
    Fecha: 2025-12-15

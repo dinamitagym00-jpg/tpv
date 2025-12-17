@@ -755,3 +755,41 @@ function dpApplyTheme(){
   if(a.panel) root.style.setProperty("--dp-panel", a.panel);
   if(a.text) root.style.setProperty("--dp-text", a.text);
 }
+function dpGetBizInfo(){
+  const st = dpGetState();
+  const cfg = (st.config && st.config.business) ? st.config.business : {};
+  const legacy = st.meta?.business || {};
+  return {
+    logoDataUrl: cfg.logoDataUrl || legacy.logoDataUrl || "",
+    name: cfg.name || legacy.name || "Dinamita Gym",
+    address: cfg.address || legacy.address || "",
+    phone: cfg.phone || legacy.phone || "",
+    email: cfg.email || legacy.email || "",
+    social: cfg.social || legacy.social || ""
+  };
+}
+
+function dpGetTicketCfg(){
+  const st = dpGetState();
+  const cfg = st.config?.ticket || {};
+  return {
+    ivaDefault: Number(cfg.ivaDefault ?? 0),
+    message: cfg.message || "Gracias por tu compra en Dinamita Gym 💥"
+  };
+}
+
+function dpRenderBranding(){
+  const biz = dpGetBizInfo();
+  const img = document.getElementById("dp-menuLogo");
+  const nameEl = document.getElementById("dp-menuName");
+  if(nameEl) nameEl.textContent = biz.name || "Dinamita POS";
+  if(img){
+    if(biz.logoDataUrl){
+      img.src = biz.logoDataUrl;
+      img.style.display = "block";
+    }else{
+      img.src = "";
+      img.style.display = "none";
+    }
+  }
+}

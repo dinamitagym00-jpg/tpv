@@ -38,15 +38,34 @@
 
   function state(){ return dpGetState(); }
 
-  function renderClients(){
+  function forceDefaultClient(){
+    if(!elClient) return;
+    const hasGen = Array.from(elClient.options).some(o=>o.value==="GEN");
+    elClient.value = hasGen ? "GEN" : (elClient.options[0]?.value || "");
+  }
+
+function renderClients(){
     const st = state();
     elClient.innerHTML = "";
-    (st.clients||[]).forEach(c=>{
+
+    // Mostrador / default option (GEN)
+    const gen = (st.clients||[]).find(c=>c.id==="GEN");
+    const optGen = document.createElement("option");
+    optGen.value = "GEN";
+    optGen.textContent = gen?.name || "Mostrador";
+    elClient.appendChild(optGen);
+
+    // Other clients
+    (st.clients||[]).filter(c=>c.id!=="GEN").forEach(c=>{
       const opt = document.createElement("option");
       opt.value = c.id;
       opt.textContent = c.name || "Cliente";
       elClient.appendChild(opt);
     });
+
+    // Always default to Mostrador
+    elClient.value = "GEN";
+  });
   }
 
   function productCard(p){
@@ -285,7 +304,8 @@
 
   function makeTicketFromSale(sale){
     const st = state();
-    const biz = st.meta?.business || { name:"Dinamita Gym" };
+    const biz = dpGetBizInfo();
+    const tcfg = dpGetTicketCfg();
     const clientName = getClientName(st, sale.clientId);
 
     const itemsHtml = (sale.items||[]).map(it=>{
@@ -298,10 +318,16 @@
     return `
       <div class="ticket">
         <div class="t-title">${biz.name || "Dinamita Gym"}</div>
+        ${biz.logoDataUrl ? `<div class="t-center"><img class="t-logo" src="${biz.logoDataUrl}" alt="logo"></div>` : ""}
+        ${biz.address ? `<div class="t-center">${biz.address}</div>` : ""}
+        ${biz.phone ? `<div class="t-center">${biz.phone}</div>` : ""}
+        ${biz.email ? `<div class="t-center">${biz.email}</div>` : ""}
+        ${biz.social ? `<div class="t-center">${biz.social}</div>` : ""}
         <div class="t-center">Ticket: <strong>${sale.id}</strong></div>
         <div class="t-center">${sale.at}</div>
         <div class="t-hr"></div>
         <div class="t-row"><span>Cliente</span><strong>${clientName}</strong></div>
+        <div class="t-row"><span>Pago</span><strong>${sale.paymentMethod || "efectivo"}</strong></div>
         ${sale.note ? `<div class="t-row"><span>Nota</span><strong>${sale.note}</strong></div>` : ""}
         <div class="t-hr"></div>
         <div class="t-items">${itemsHtml}</div>
@@ -310,7 +336,7 @@
         <div class="t-row"><span>IVA</span><strong>${dpFmtMoney(sale.ivaAmount)}</strong></div>
         <div class="t-row t-big"><span>Total</span><strong>${dpFmtMoney(sale.total)}</strong></div>
         <div class="t-hr"></div>
-        <div class="t-center">Gracias por tu compra en Dinamita Gym 💥</div>
+        <div class="t-center">${tcfg.message}</div>
       </div>
     `;
   }
@@ -495,6 +521,11 @@
 
   // Init
   renderClients();
+  forceDefaultClient();
+  if(elPayMethod) elPayMethod.value = "efectivo";
+  if(elRequireTicket) elRequireTicket.checked = false;
+  if(elPayMethod) elPayMethod.value = "efectivo";
+  if(elRequireTicket) elRequireTicket.checked = false;
   // Defaults on enter
   if(elClient){ elClient.value = (Array.from(elClient.options).some(o=>o.value==="GEN") ? "GEN" : (elClient.options[0]?.value||"")); }
   if(elPayMethod){ elPayMethod.value = "efectivo"; }
