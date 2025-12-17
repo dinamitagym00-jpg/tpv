@@ -714,3 +714,44 @@ function dpGetSalesRows({from="", to=""}={}){
   }
   return rows;
 }
+function dpGetConfig(){
+  const st = dpGetState();
+  st.config = st.config || {};
+  st.config.business = st.config.business || { 
+    logoDataUrl: "", name: (st.business?.name || "Dinamita Gym"), address:"", phone:"", email:"", social:""
+  };
+  st.config.appearance = st.config.appearance || {
+    bg: "#ffffff",
+    panel: "#ffffff",
+    primary: "#c00000",
+    text: "#111111"
+  };
+  st.config.ticket = st.config.ticket || {
+    ivaDefault: 0,
+    message: "Gracias por tu compra en Dinamita Gym 💥"
+  };
+  return st.config;
+}
+
+function dpSetConfig(partial){
+  return dpSetState(st=>{
+    st.config = st.config || {};
+    const cur = dpGetConfig(); // ensures defaults
+    st.config = {
+      business: { ...cur.business, ...(partial.business||{}) },
+      appearance: { ...cur.appearance, ...(partial.appearance||{}) },
+      ticket: { ...cur.ticket, ...(partial.ticket||{}) }
+    };
+    return st;
+  });
+}
+
+function dpApplyTheme(){
+  const cfg = dpGetConfig();
+  const a = cfg.appearance || {};
+  const root = document.documentElement;
+  if(a.primary) root.style.setProperty("--dp-red", a.primary);
+  if(a.bg) root.style.setProperty("--dp-bg", a.bg);
+  if(a.panel) root.style.setProperty("--dp-panel", a.panel);
+  if(a.text) root.style.setProperty("--dp-text", a.text);
+}

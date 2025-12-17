@@ -13,7 +13,7 @@
 body{
   margin:0;
   font-family: Arial, sans-serif;
-  background: #f2f2f2;
+  background: var(--dp-bg);
   color: var(--dp-text);
 }
 #app{ display:flex; min-height:100vh; }
