@@ -35,7 +35,7 @@ function dpSave(state){
 
 function dpDefaultState(){
   return {
-    meta: { version:"v0.1.0", createdAt: dpNowISO(), business:{ name:"Dinamita Gym", ivaDefault:0 } },
+    meta: { categories: ['suplemento','agua','accesorio'], version:"v0.1.0", createdAt: dpNowISO(), business:{ name:"Dinamita Gym", ivaDefault:0 } },
     products: [
       { id:"P001", sku:"SKU-0001", barcode:"750000000001", name:"Agua 1L", category:"agua", price:14, cost:8, stock:50, image:"", updatedAt:dpNowISO() },
       { id:"P002", sku:"SKU-0002", barcode:"750000000002", name:"Proteína 2lb", category:"suplemento", price:650, cost:450, stock:12, image:"", updatedAt:dpNowISO() },
@@ -152,12 +152,106 @@ function dpCreateSale({clientId, cartItems, note, iva=0}){
 
 
 
+function dpCreateWarehouseEntry({productId, qty, unitCost, supplier, date, notes, imageDataUrl}){
+  return dpSetState(st=>{
+    const id = dpId("B");
+    const at = dpNowISO();
+    const entryDate = date || at.slice(0,10);
+    const movement = {
+      id,
+      at,
+      date: entryDate,
+      productId,
+      qty: Number(qty||0),
+      unitCost: Number(unitCost||0),
+      supplier: supplier || "",
+      notes: notes || "",
+      image: imageDataUrl || ""
+    };
+
+    st.warehouse = st.warehouse || { movements: [] };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.movements.unshift(movement);
+
+    // Affect inventory stock
+    const p = (st.products||[]).find(x=>x.id===productId);
+    if(p){
+      p.stock = Number(p.stock||0) + Number(qty||0);
+      if(Number(unitCost||0) > 0) p.cost = Number(unitCost||0);
+      p.updatedAt = at;
+      if(!p.image && imageDataUrl) p.image = imageDataUrl;
+    }
+
+    return st;
+  });
+}
+
+function dpUpdateWarehouseEntry(entryId, updates){
+  return dpSetState(st=>{
+    const mv = st.warehouse?.movements?.find(x=>x.id===entryId);
+    if(!mv) return st;
+
+    const oldQty = Number(mv.qty||0);
+    const newQty = updates.qty !== undefined ? Number(updates.qty||0) : oldQty;
+    const diff = newQty - oldQty;
+
+    Object.assign(mv, updates);
+    mv.qty = newQty;
+    mv.unitCost = updates.unitCost !== undefined ? Number(updates.unitCost||0) : Number(mv.unitCost||0);
+
+    const p = (st.products||[]).find(x=>x.id===mv.productId);
+    if(p){
+      p.stock = Number(p.stock||0) + diff;
+      if(Number(mv.unitCost||0) > 0) p.cost = Number(mv.unitCost||0);
+      if(!p.image && mv.image) p.image = mv.image;
+      p.updatedAt = dpNowISO();
+    }
+
+    return st;
+  });
+}
+
+function dpDeleteWarehouseEntry(entryId){
+  return dpSetState(st=>{
+    const mvs = st.warehouse?.movements || [];
+    const mv = mvs.find(x=>x.id===entryId);
+    if(!mv) return st;
+
+    const p = (st.products||[]).find(x=>x.id===mv.productId);
+    if(p){
+      p.stock = Math.max(0, Number(p.stock||0) - Number(mv.qty||0));
+      p.updatedAt = dpNowISO();
+    }
+
     st.warehouse.movements = mvs.filter(x=>x.id!==entryId);
     return st;
   });
 }
 
-/* --- Bodega (movimientos de entrada + traspasos) --- */
+
+function dpEnsureSeedData(){
+  return dpSetState(st=>{
+    st.meta = st.meta || {};
+    st.meta.categories = st.meta.categories || ['suplemento','agua','accesorio'];
+    st.products = st.products || [];
+    if(st.products.length === 0){
+      const now = dpNowISO();
+      st.products = [{"id": "P100001", "sku": "DM-WATER-1L", "barcode": "750000000001", "name": "Agua Bonafont 1L", "category": "agua", "price": 14, "cost": 6, "stock": 20, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}, {"id": "P100002", "sku": "DM-WHEY-2LB", "barcode": "750000000002", "name": "Proteína Whey 2 lb (Demo)", "category": "suplemento", "price": 699, "cost": 480, "stock": 5, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}, {"id": "P100003", "sku": "DM-CREAT-300", "barcode": "750000000003", "name": "Creatina 300g (Demo)", "category": "suplemento", "price": 499, "cost": 320, "stock": 8, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}, {"id": "P100004", "sku": "DM-SHAKER", "barcode": "750000000004", "name": "Shaker Dinamita (Demo)", "category": "accesorio", "price": 120, "cost": 60, "stock": 12, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}].map(p=>({
+        ...p,
+        createdAt: p.createdAt || now,
+        updatedAt: p.updatedAt || now
+      }));
+    }
+    // Ensure warehouse structure exists
+    st.warehouse = st.warehouse || { movements: [], stock: {} };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.stock = st.warehouse.stock || {};
+    return st;
+  });
+}
+
+
+/* --- Bodega v0 (Opción A): stock separado + traspaso a inventario --- */
 function dpWarehouseQty(st, productId){
   st.warehouse = st.warehouse || { movements: [], stock: {} };
   st.warehouse.stock = st.warehouse.stock || {};
@@ -188,16 +282,17 @@ function dpCreateWarehouseEntry({productId, qty, unitCost, supplier, date, notes
     };
     st.warehouse.movements.unshift(movement);
 
-    // Affect warehouse stock ONLY (no suma a inventario)
+    // SOLO bodega
     st.warehouse.stock[productId] = dpWarehouseQty(st, productId) + Number(qty||0);
 
-    // Optional: update product cost/image reference (no stock change)
+    // actualizar costo/imagen del producto (sin mover stock)
     const p = (st.products||[]).find(x=>x.id===productId);
     if(p){
       if(Number(unitCost||0) > 0) p.cost = Number(unitCost||0);
       if(!p.image && imageDataUrl) p.image = imageDataUrl;
       p.updatedAt = at;
     }
+
     return st;
   });
 }
@@ -209,8 +304,7 @@ function dpUpdateWarehouseEntry(entryId, updates){
     st.warehouse.stock = st.warehouse.stock || {};
 
     const mv = st.warehouse.movements.find(x=>x.id===entryId);
-    if(!mv) return st;
-    if(mv.type !== "in") return st; // solo se editan entradas
+    if(!mv || mv.type !== "in") return st;
 
     const oldQty = Number(mv.qty||0);
     const newQty = updates.qty !== undefined ? Number(updates.qty||0) : oldQty;
@@ -218,12 +312,10 @@ function dpUpdateWarehouseEntry(entryId, updates){
 
     Object.assign(mv, updates);
     mv.qty = newQty;
-    mv.unitCost = updates.unitCost !== undefined ? Number(updates.unitCost||0) : Number(mv.unitCost||0);
+    if(updates.unitCost !== undefined) mv.unitCost = Number(updates.unitCost||0);
 
-    // Adjust warehouse stock
     st.warehouse.stock[mv.productId] = Math.max(0, dpWarehouseQty(st, mv.productId) + diff);
 
-    // Optional update product cost/image
     const p = (st.products||[]).find(x=>x.id===mv.productId);
     if(p){
       if(Number(mv.unitCost||0) > 0) p.cost = Number(mv.unitCost||0);
@@ -241,12 +333,9 @@ function dpDeleteWarehouseEntry(entryId){
     st.warehouse.stock = st.warehouse.stock || {};
 
     const mv = st.warehouse.movements.find(x=>x.id===entryId);
-    if(!mv) return st;
-    if(mv.type !== "in") return st; // solo se borran entradas
+    if(!mv || mv.type !== "in") return st;
 
-    // Revert warehouse stock
     st.warehouse.stock[mv.productId] = Math.max(0, dpWarehouseQty(st, mv.productId) - Number(mv.qty||0));
-
     st.warehouse.movements = st.warehouse.movements.filter(x=>x.id!==entryId);
     return st;
   });
@@ -263,28 +352,24 @@ function dpTransferFromWarehouse({productId, qty, notes}){
     if(!Number.isFinite(q) || q<=0) return st;
     if(q > available) return st;
 
-    // Restar bodega
     st.warehouse.stock[productId] = available - q;
 
-    // Sumar inventario (piso)
     const p = (st.products||[]).find(x=>x.id===productId);
     if(p){
       p.stock = Number(p.stock||0) + q;
       p.updatedAt = dpNowISO();
     }
 
-    const id = dpId("T");
-    const at = dpNowISO();
     st.warehouse.movements.unshift({
-      id,
+      id: dpId("T"),
       type: "transfer",
-      at,
-      date: at.slice(0,10),
+      at: dpNowISO(),
+      date: dpNowISO().slice(0,10),
       productId,
       qty: q,
       notes: notes || ""
     });
+
     return st;
   });
 }
-

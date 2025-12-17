@@ -98,7 +98,7 @@
     if(!p) return;
     elProductId.value = p.id;
     elProductSearch.value = `${p.name} (${p.sku || p.id})`;
-    elPickedLabel.textContent = `Seleccionado: ${p.name} | Piso: ${p.stock ?? 0} | Bodega: ${dpGetState().warehouse?.stock?.[p.id] ?? 0}`;
+    elPickedLabel.textContent = `Seleccionado: ${p.name} | Piso: ${p.stock ?? 0} | Bodega: ${Number(state().warehouse?.stock?.[p.id] || 0)}`;
     elPick.style.display = "none";
     elPick.innerHTML = "";
   }
@@ -240,6 +240,23 @@
         imageDataUrl: mv.image || ""
       });
       renderList();
+    };
+
+    const transfer = document.createElement("button");
+    transfer.className = "btn btn--ghost btn--mini";
+    transfer.textContent = "Enviar a Inventario";
+    transfer.onclick = ()=>{
+      const st2 = state();
+      const available = Number(st2.warehouse?.stock?.[mv.productId] || 0);
+      if(available <= 0){ alert("No hay stock en bodega para transferir."); return; }
+      const v = prompt(`¿Cuántas piezas enviar a Inventario? (Disponible en bodega: ${available})`, String(Math.min(available, Number(mv.qty||1))));
+      if(v === null) return;
+      const n = Number(v);
+      if(!Number.isFinite(n) || n <= 0){ alert("Cantidad inválida"); return; }
+      if(n > available){ alert("No puedes transferir más de lo que hay en bodega."); return; }
+      dpTransferFromWarehouse({ productId: mv.productId, qty: n, notes: "" });
+      renderList();
+      alert("Traspaso realizado: Bodega → Inventario.");
     };
 
     const del = document.createElement("button");
