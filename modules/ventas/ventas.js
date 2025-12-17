@@ -15,6 +15,7 @@
   const elEmpty = $("v-empty");
 
   const elClient = $("v-client");
+  const elPayMethod = $("v-payMethod");
   const elIVA = $("v-iva");
   const elNote = $("v-note");
 
@@ -41,23 +42,22 @@
     const st = state();
     elClient.innerHTML = "";
 
-    // Default / Mostrador option (GEN)
+    // Default Mostrador
     const hasGen = (st.clients||[]).some(c=>c.id==="GEN");
+    const genName = hasGen ? ((st.clients||[]).find(c=>c.id==="GEN")?.name || "Mostrador") : "Mostrador";
     const optGen = document.createElement("option");
     optGen.value = "GEN";
-    optGen.textContent = hasGen ? ((st.clients||[]).find(c=>c.id==="GEN")?.name || "Mostrador") : "Mostrador";
+    optGen.textContent = genName;
     elClient.appendChild(optGen);
 
     // Other clients
-    (st.clients||[])
-      .filter(c=>c.id!=="GEN")
-      .forEach(c=>{
-        const opt = document.createElement("option");
-        opt.value = c.id;
-        opt.textContent = c.name || "Cliente";
-        elClient.appendChild(opt);
-      });
+    (st.clients||[]).filter(c=>c.id!=="GEN").forEach(c=>{
+      const opt = document.createElement("option");
+      opt.value = c.id;
+      opt.textContent = c.name || "Cliente";
+      elClient.appendChild(opt);
+    });
 
-    // Force default to Mostrador every time we enter Ventas
+    // Always default to Mostrador
     elClient.value = "GEN";
   })();

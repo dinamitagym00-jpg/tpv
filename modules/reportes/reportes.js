@@ -117,14 +117,14 @@
       for(const r of currentRows){
         const key = r.ticket;
         if(!byTicket[key]){
-          byTicket[key] = { ticket:r.ticket, date:r.date, kind:r.kind, client:getClientName(r.clientId), total:0 };
+          byTicket[key] = { ticket:r.ticket, date:r.date, kind:r.kind, client:getClientName(r.clientId), pay:(r.paymentMethod||""), total:0 };
         }
         byTicket[key].total += Number(r.total||0);
         if(r.kind!=="venta" && byTicket[key].kind==="venta") byTicket[key].kind = r.kind;
       }
       const list = Object.values(byTicket).sort((a,b)=> (b.date||"").localeCompare(a.date||"") || (b.ticket||"").localeCompare(a.ticket||""));
       setTable(
-        ["Fecha","Ticket","Tipo","Cliente","Total"],
+        ["Fecha","Ticket","Tipo","Cliente","Pago","Total"],
         list,
         x => `
           <tr>
@@ -132,6 +132,7 @@
             <td><strong>${x.ticket}</strong></td>
             <td>${x.kind==="venta"?"Venta":(x.kind==="membresia"?"Membresía":"Servicio")}</td>
             <td>${x.client}</td>
+            <td>${x.pay || ""}</td>
             <td class="right"><strong>${fmtMoney(x.total)}</strong></td>
           </tr>
         `
@@ -144,13 +145,14 @@
       rSubtitle.textContent = "Fecha, ticket, producto, precio unitario, piezas, total.";
       const rows = currentRows.filter(r=>r.kind==="venta");
       setTable(
-        ["Fecha","Ticket","Cliente","Producto","Categoría","Precio U.","Pzs","Total"],
+        ["Fecha","Ticket","Cliente","Pago","Producto","Categoría","Precio U.","Pzs","Total"],
         rows,
         r => `
           <tr>
             <td>${r.date}</td>
             <td>${r.ticket}</td>
             <td>${getClientName(r.clientId)}</td>
+            <td>${r.paymentMethod||""}</td>
             <td>${r.product}</td>
             <td>${r.category||""}</td>
             <td class="right">${fmtMoney(r.unitPrice)}</td>
@@ -192,13 +194,14 @@
       rSubtitle.textContent = "Desglose de cobros de membresía (con inicio/fin si aplica).";
       const rows = currentRows.filter(r=>r.kind==="membresia");
       setTable(
-        ["Fecha","Ticket","Cliente","Membresía","Inicio","Fin","Total"],
+        ["Fecha","Ticket","Cliente","Pago","Membresía","Inicio","Fin","Total"],
         rows,
         r => `
           <tr>
             <td>${r.date}</td>
             <td>${r.ticket}</td>
             <td>${getClientName(r.clientId)}</td>
+            <td>${r.paymentMethod||""}</td>
             <td>${r.product}</td>
             <td>${r.meta?.startDate || ""}</td>
             <td>${r.meta?.endDate || ""}</td>
@@ -218,17 +221,17 @@
     let data = [];
 
     if(type==="general"){
-      headers = ["fecha","ticket","tipo","cliente","total"];
+      headers = ["fecha","ticket","tipo","cliente","pago","total"];
       const byTicket = {};
       for(const r of rows){
         const key = r.ticket;
         if(!byTicket[key]) byTicket[key] = {date:r.date,ticket:r.ticket,kind:r.kind,client:getClientName(r.clientId),total:0};
         byTicket[key].total += Number(r.total||0);
       }
-      data = Object.values(byTicket).map(x=>[x.date,x.ticket,x.kind,getClientName(x.client),x.total]);
+      data = Object.values(byTicket).map(x=>[x.date,x.ticket,x.kind,x.client,(x.pay||""),x.total]);
     }else if(type==="productos"){
-      headers = ["fecha","ticket","cliente","producto","categoria","precio_unitario","piezas","total"];
-      data = rows.filter(r=>r.kind==="venta").map(r=>[r.date,r.ticket,getClientName(r.clientId),r.product,r.category,r.unitPrice,r.qty,r.total]);
+      headers = ["fecha","ticket","cliente","pago","producto","categoria","precio_unitario","piezas","total"];
+      data = rows.filter(r=>r.kind==="venta").map(r=>[r.date,r.ticket,getClientName(r.clientId),(r.paymentMethod||""),r.product,r.category,r.unitPrice,r.qty,r.total]);
     }else if(type==="categoria"){
       headers = ["categoria","piezas","total"];
       const map = {};
@@ -240,8 +243,8 @@
       }
       data = Object.entries(map).map(([c,v])=>[c,v.qty,v.total]);
     }else if(type==="membresias"){
-      headers = ["fecha","ticket","cliente","membresia","inicio","fin","total"];
-      data = rows.filter(r=>r.kind==="membresia").map(r=>[r.date,r.ticket,getClientName(r.clientId),r.product,r.meta?.startDate||"",r.meta?.endDate||"",r.total]);
+      headers = ["fecha","ticket","cliente","pago","membresia","inicio","fin","total"];
+      data = rows.filter(r=>r.kind==="membresia").map(r=>[r.date,r.ticket,getClientName(r.clientId),(r.paymentMethod||""),r.product,r.meta?.startDate||"",r.meta?.endDate||"",r.total]);
     }
 
     const csv = [headers.join(",")]
