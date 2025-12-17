@@ -47,7 +47,7 @@ function dpDefaultState(){
     ],
     sales: [],
     memberships: [],
-    warehouse: { movements: [] },
+    warehouse: { movements: [], stock: {} },
     analytics: {
       mostSold: {},
       recentSearches: [],
@@ -151,14 +151,32 @@ function dpCreateSale({clientId, cartItems, note, iva=0}){
 }
 
 
-/* --- Bodega (movimientos de entrada) --- */
+
+    st.warehouse.movements = mvs.filter(x=>x.id!==entryId);
+    return st;
+  });
+}
+
+/* --- Bodega (movimientos de entrada + traspasos) --- */
+function dpWarehouseQty(st, productId){
+  st.warehouse = st.warehouse || { movements: [], stock: {} };
+  st.warehouse.stock = st.warehouse.stock || {};
+  return Number(st.warehouse.stock[productId] || 0);
+}
+
 function dpCreateWarehouseEntry({productId, qty, unitCost, supplier, date, notes, imageDataUrl}){
   return dpSetState(st=>{
     const id = dpId("B");
     const at = dpNowISO();
     const entryDate = date || at.slice(0,10);
+
+    st.warehouse = st.warehouse || { movements: [], stock: {} };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.stock = st.warehouse.stock || {};
+
     const movement = {
       id,
+      type: "in",
       at,
       date: entryDate,
       productId,
@@ -168,28 +186,31 @@ function dpCreateWarehouseEntry({productId, qty, unitCost, supplier, date, notes
       notes: notes || "",
       image: imageDataUrl || ""
     };
-
-    st.warehouse = st.warehouse || { movements: [] };
-    st.warehouse.movements = st.warehouse.movements || [];
     st.warehouse.movements.unshift(movement);
 
-    // Affect inventory stock
+    // Affect warehouse stock ONLY (no suma a inventario)
+    st.warehouse.stock[productId] = dpWarehouseQty(st, productId) + Number(qty||0);
+
+    // Optional: update product cost/image reference (no stock change)
     const p = (st.products||[]).find(x=>x.id===productId);
     if(p){
-      p.stock = Number(p.stock||0) + Number(qty||0);
       if(Number(unitCost||0) > 0) p.cost = Number(unitCost||0);
-      p.updatedAt = at;
       if(!p.image && imageDataUrl) p.image = imageDataUrl;
+      p.updatedAt = at;
     }
-
     return st;
   });
 }
 
 function dpUpdateWarehouseEntry(entryId, updates){
   return dpSetState(st=>{
-    const mv = st.warehouse?.movements?.find(x=>x.id===entryId);
+    st.warehouse = st.warehouse || { movements: [], stock: {} };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.stock = st.warehouse.stock || {};
+
+    const mv = st.warehouse.movements.find(x=>x.id===entryId);
     if(!mv) return st;
+    if(mv.type !== "in") return st; // solo se editan entradas
 
     const oldQty = Number(mv.qty||0);
     const newQty = updates.qty !== undefined ? Number(updates.qty||0) : oldQty;
@@ -199,31 +220,71 @@ function dpUpdateWarehouseEntry(entryId, updates){
     mv.qty = newQty;
     mv.unitCost = updates.unitCost !== undefined ? Number(updates.unitCost||0) : Number(mv.unitCost||0);
 
+    // Adjust warehouse stock
+    st.warehouse.stock[mv.productId] = Math.max(0, dpWarehouseQty(st, mv.productId) + diff);
+
+    // Optional update product cost/image
     const p = (st.products||[]).find(x=>x.id===mv.productId);
     if(p){
-      p.stock = Number(p.stock||0) + diff;
       if(Number(mv.unitCost||0) > 0) p.cost = Number(mv.unitCost||0);
       if(!p.image && mv.image) p.image = mv.image;
       p.updatedAt = dpNowISO();
     }
-
     return st;
   });
 }
 
 function dpDeleteWarehouseEntry(entryId){
   return dpSetState(st=>{
-    const mvs = st.warehouse?.movements || [];
-    const mv = mvs.find(x=>x.id===entryId);
+    st.warehouse = st.warehouse || { movements: [], stock: {} };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.stock = st.warehouse.stock || {};
+
+    const mv = st.warehouse.movements.find(x=>x.id===entryId);
     if(!mv) return st;
+    if(mv.type !== "in") return st; // solo se borran entradas
 
-    const p = (st.products||[]).find(x=>x.id===mv.productId);
-    if(p){
-      p.stock = Math.max(0, Number(p.stock||0) - Number(mv.qty||0));
-      p.updatedAt = dpNowISO();
-    }
+    // Revert warehouse stock
+    st.warehouse.stock[mv.productId] = Math.max(0, dpWarehouseQty(st, mv.productId) - Number(mv.qty||0));
 
-    st.warehouse.movements = mvs.filter(x=>x.id!==entryId);
+    st.warehouse.movements = st.warehouse.movements.filter(x=>x.id!==entryId);
     return st;
   });
 }
+
+function dpTransferFromWarehouse({productId, qty, notes}){
+  return dpSetState(st=>{
+    st.warehouse = st.warehouse || { movements: [], stock: {} };
+    st.warehouse.movements = st.warehouse.movements || [];
+    st.warehouse.stock = st.warehouse.stock || {};
+
+    const available = dpWarehouseQty(st, productId);
+    const q = Number(qty||0);
+    if(!Number.isFinite(q) || q<=0) return st;
+    if(q > available) return st;
+
+    // Restar bodega
+    st.warehouse.stock[productId] = available - q;
+
+    // Sumar inventario (piso)
+    const p = (st.products||[]).find(x=>x.id===productId);
+    if(p){
+      p.stock = Number(p.stock||0) + q;
+      p.updatedAt = dpNowISO();
+    }
+
+    const id = dpId("T");
+    const at = dpNowISO();
+    st.warehouse.movements.unshift({
+      id,
+      type: "transfer",
+      at,
+      date: at.slice(0,10),
+      productId,
+      qty: q,
+      notes: notes || ""
+    });
+    return st;
+  });
+}
+

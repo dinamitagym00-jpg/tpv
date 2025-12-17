@@ -98,7 +98,7 @@
     if(!p) return;
     elProductId.value = p.id;
     elProductSearch.value = `${p.name} (${p.sku || p.id})`;
-    elPickedLabel.textContent = `Seleccionado: ${p.name} | Stock actual: ${p.stock ?? 0}`;
+    elPickedLabel.textContent = `Seleccionado: ${p.name} | Piso: ${p.stock ?? 0} | Bodega: ${dpGetState().warehouse?.stock?.[p.id] ?? 0}`;
     elPick.style.display = "none";
     elPick.innerHTML = "";
   }
@@ -148,7 +148,7 @@
       elStatus.textContent = "Movimiento actualizado.";
     }else{
       dpCreateWarehouseEntry(payload);
-      elStatus.textContent = "Entrada registrada y stock actualizado.";
+      elStatus.textContent = "Entrada registrada en bodega (no suma a inventario).";
     }
 
     renderList();
@@ -246,7 +246,7 @@
     del.className = "btn btn--mini";
     del.textContent = "Borrar";
     del.onclick = ()=>{
-      if(!confirm(`¿Borrar movimiento ${mv.id}? Esto restará el stock agregado.`)) return;
+      if(!confirm(`¿Borrar movimiento ${mv.id}? Esto restará el stock en bodega (no afecta inventario).`)) return;
       dpDeleteWarehouseEntry(mv.id);
       renderList();
       resetForm();
@@ -254,6 +254,7 @@
 
     actions.appendChild(edit);
     actions.appendChild(add);
+    actions.appendChild(transfer);
     actions.appendChild(del);
 
     div.appendChild(img);
