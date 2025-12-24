@@ -35,20 +35,41 @@ function dpSave(state){
 
 function dpDefaultState(){
   return {
-    meta: { categories: ['suplemento','agua','accesorio'], version:"v0.1.0", createdAt: dpNowISO(), business:{ name:"Dinamita Gym", ivaDefault:0 ,
-      membershipOptions: {
-        durations: [1,7,30,183,365],
-        types: [
-          { name:'Visita', subtypes:['Normal','Socio','VIP'], defaultDays:1,
-      membershipCatalog: [{"id": "MP001", "name": "Anualidad", "days": 365, "price": 2400}, {"id": "MP002", "name": "Medio año", "days": 182, "price": 1500}, {"id": "MP003", "name": "Mes normal", "days": 30, "price": 350}, {"id": "MP004", "name": "Mes socio", "days": 30, "price": 300}, {"id": "MP005", "name": "Mes VIP", "days": 30, "price": 250}, {"id": "MP006", "name": "Semana normal", "days": 7, "price": 150}, {"id": "MP007", "name": "Semana socio", "days": 7, "price": 130}, {"id": "MP008", "name": "Semana VIP", "days": 7, "price": 100}, {"id": "MP009", "name": "Visita normal", "days": 1, "price": 40}, {"id": "MP010", "name": "Visita socio", "days": 1, "price": 30}, {"id": "MP011", "name": "Visita VIP", "days": 1, "price": 25}]
-    },
-          { name:'Semana', subtypes:['Normal','Socio','VIP'], defaultDays:7 },
-          { name:'Mensual', subtypes:['Normal','Socio','VIP'], defaultDays:30 },
-          { name:'Medio Año', subtypes:['Normal'], defaultDays:183 },
-          { name:'Anual', subtypes:['Normal'], defaultDays:365 }
+    meta: {
+      categories: ['suplemento','agua','accesorio'],
+      version: "v0.1.0",
+      createdAt: dpNowISO(),
+      business: {
+        name: "Dinamita Gym",
+        address: "",
+        phone: "",
+        email: "",
+        redes: "",
+        logoDataUrl: "",
+        ivaDefault: 0,
+        ticketMessage: "Gracias por tu compra en Dinamita Gym 💥",
+        appearance: {
+          bg: "#f5f6f8",
+          panel: "#ffffff",
+          primary: "#b3001b",
+          text: "#111111"
+        },
+        // Catálogo editable de membresías
+        membershipCatalog: [
+          { id: "MP001", name: "Anualidad", days: 365, price: 2400 },
+          { id: "MP002", name: "Medio año", days: 182, price: 1500 },
+          { id: "MP003", name: "Mes normal", days: 30, price: 350 },
+          { id: "MP004", name: "Mes socio", days: 30, price: 300 },
+          { id: "MP005", name: "Mes VIP", days: 30, price: 250 },
+          { id: "MP006", name: "Semana normal", days: 7, price: 150 },
+          { id: "MP007", name: "Semana socio", days: 7, price: 130 },
+          { id: "MP008", name: "Semana VIP", days: 7, price: 100 },
+          { id: "MP009", name: "Visita normal", days: 1, price: 40 },
+          { id: "MP010", name: "Visita socio", days: 1, price: 30 },
+          { id: "MP011", name: "Visita VIP", days: 1, price: 25 }
         ]
       }
-} },
+    },
     products: [
       { id:"P001", sku:"SKU-0001", barcode:"750000000001", name:"Agua 1L", category:"agua", price:14, cost:8, stock:50, image:"", updatedAt:dpNowISO() },
       { id:"P002", sku:"SKU-0002", barcode:"750000000002", name:"Proteína 2lb", category:"suplemento", price:650, cost:450, stock:12, image:"", updatedAt:dpNowISO() },
@@ -65,9 +86,9 @@ function dpDefaultState(){
       mostSold: {},
       recentSearches: [],
       recentProducts: []
-    }
+    },
     expenses: [],
-    expenseCategories: ['servicios','renta','sueldos','insumos','mantenimiento','otros'],
+    expenseCategories: ['servicios','renta','sueldos','insumos','mantenimiento','otros']
 
   };
 }
@@ -248,13 +269,25 @@ function dpDeleteWarehouseEntry(entryId){
 
 function dpEnsureSeedData(){
   return dpSetState(st=>{
+    // Repair common corruption cases (partial localStorage writes / schema changes)
+    st.meta = st.meta || {};
+    if(!Array.isArray(st.products)) st.products = [];
+    if(!Array.isArray(st.clients)) st.clients = [];
+    if(!Array.isArray(st.sales)) st.sales = [];
+    if(!Array.isArray(st.memberships)) st.memberships = [];
+    if(!Array.isArray(st.expenses)) st.expenses = [];
+    if(!Array.isArray(st.expenseCategories)) st.expenseCategories = [];
+
+    // If products exist but are unusable (missing name/sku), reseed demo products.
+    const hasValidProduct = (st.products||[]).some(p=>p && (p.name || p.sku || p.barcode));
+
     st.meta = st.meta || {};
     st.meta.membershipCatalog = st.meta.membershipCatalog || [];
     if(st.meta.membershipCatalog.length===0){ st.meta.membershipCatalog = [{"id": "MP001", "name": "Anualidad", "days": 365, "price": 2400}, {"id": "MP002", "name": "Medio año", "days": 182, "price": 1500}, {"id": "MP003", "name": "Mes normal", "days": 30, "price": 350}, {"id": "MP004", "name": "Mes socio", "days": 30, "price": 300}, {"id": "MP005", "name": "Mes VIP", "days": 30, "price": 250}, {"id": "MP006", "name": "Semana normal", "days": 7, "price": 150}, {"id": "MP007", "name": "Semana socio", "days": 7, "price": 130}, {"id": "MP008", "name": "Semana VIP", "days": 7, "price": 100}, {"id": "MP009", "name": "Visita normal", "days": 1, "price": 40}, {"id": "MP010", "name": "Visita socio", "days": 1, "price": 30}, {"id": "MP011", "name": "Visita VIP", "days": 1, "price": 25}]; }
 
     st.meta.categories = st.meta.categories || ['suplemento','agua','accesorio'];
     st.products = st.products || [];
-    if(st.products.length === 0){
+    if(st.products.length === 0 || !hasValidProduct){
       const now = dpNowISO();
       st.products = [{"id": "P100001", "sku": "DM-WATER-1L", "barcode": "750000000001", "name": "Agua Bonafont 1L", "category": "agua", "price": 14, "cost": 6, "stock": 20, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}, {"id": "P100002", "sku": "DM-WHEY-2LB", "barcode": "750000000002", "name": "Proteína Whey 2 lb (Demo)", "category": "suplemento", "price": 699, "cost": 480, "stock": 5, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}, {"id": "P100003", "sku": "DM-CREAT-300", "barcode": "750000000003", "name": "Creatina 300g (Demo)", "category": "suplemento", "price": 499, "cost": 320, "stock": 8, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}, {"id": "P100004", "sku": "DM-SHAKER", "barcode": "750000000004", "name": "Shaker Dinamita (Demo)", "category": "accesorio", "price": 120, "cost": 60, "stock": 12, "expiry": "", "lot": "", "image": "", "createdAt": "", "updatedAt": ""}].map(p=>({
         ...p,
