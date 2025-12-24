@@ -9,3 +9,6 @@
 .pillBtn:hover{ opacity:.95; }
 .cfgLogoRow{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-top:8px; }
 .cfgLogoPreview{ width:64px; height:64px; object-fit:contain; border:1px solid var(--dp-border); border-radius:12px; background:#fff; display:none; }
+
+
+.backupRow{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; }

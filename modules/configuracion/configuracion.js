@@ -151,6 +151,83 @@
     alert("Restablecido ✅");
   });
 
+
+  // Respaldo (Exportar / Importar)
+  const elExportBackup = $("cfg-exportBackup");
+  const elImportBackup = $("cfg-importBackup");
+  const elImportFile   = $("cfg-importFile");
+  const elBackupStatus = $("cfg-backupStatus");
+
+  function setBackupStatus(msg){
+    if(!elBackupStatus) return;
+    elBackupStatus.textContent = msg || "";
+  }
+
+  function downloadTextFile(filename, text, mime="application/json"){
+    const blob = new Blob([text], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url), 800);
+  }
+
+  if(elExportBackup){
+    elExportBackup.addEventListener("click", ()=>{
+      try{
+        const st = dpGetState();
+        const d = new Date();
+        const pad = (n)=>String(n).padStart(2,"0");
+        const ts = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}`;
+        const filename = `dinamita_pos_respaldo_${ts}.json`;
+        downloadTextFile(filename, JSON.stringify(st, null, 2));
+        setBackupStatus("Respaldo exportado ✅");
+      }catch(err){
+        console.error(err);
+        setBackupStatus("Error al exportar respaldo ❌");
+        alert("No se pudo exportar el respaldo.");
+      }
+    });
+  }
+
+  if(elImportBackup && elImportFile){
+    elImportBackup.addEventListener("click", ()=>{
+      elImportFile.value = "";
+      elImportFile.click();
+    });
+
+    elImportFile.addEventListener("change", async ()=>{
+      const file = elImportFile.files && elImportFile.files[0];
+      if(!file) return;
+
+      try{
+        setBackupStatus("Importando respaldo...");
+        const text = await file.text();
+        const data = JSON.parse(text);
+
+        // Validación básica
+        if(!data || typeof data !== "object" || !("products" in data) || !("sales" in data) || !("clients" in data)){
+          alert("Este archivo no parece un respaldo válido de Dinamita POS.");
+          setBackupStatus("Archivo inválido ❌");
+          return;
+        }
+
+        dpSetState(()=>data);
+        setBackupStatus("Respaldo importado ✅ Reiniciando...");
+        // Recargar para que todos los módulos tomen el nuevo estado
+        setTimeout(()=>window.location.reload(), 450);
+      }catch(err){
+        console.error(err);
+        setBackupStatus("Error al importar ❌");
+        alert("No se pudo importar el respaldo. Verifica que sea un JSON válido.");
+      }
+    });
+  }
+
+
   // Init
   try{ dpApplyTheme(); }catch(e){}
   fill();
