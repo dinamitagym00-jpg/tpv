@@ -378,15 +378,13 @@
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>Ticket ${sale.id}</title>
           <style>
-            @page{ size:58mm auto; margin:0; }
-            body{ margin:0; padding:6px; }
+            body{ margin:0; padding:12px; }
             .ticket{
               font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-              font-size:18px; font-weight:900; color:#111; line-height:1.35;
-              width: 58mm;
+              font-size:12px; color:#111; line-height:1.35;
+              width: 280px;
             }
-            .ticket *{ font-weight:800; }
-            .t-title{ font-weight:900; text-align:center; font-size:19px; }
+            .t-title{ font-weight:900; text-align:center; font-size:13px; }
             .t-center{ text-align:center; }
             .t-row{ display:flex; justify-content:space-between; gap:10px; }
             .t-hr{ border-top:1px dashed #999; margin:8px 0; }
@@ -394,7 +392,7 @@
             .t-item{ display:flex; justify-content:space-between; gap:10px; }
             .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
             .t-item .r{ flex:0 0 auto; font-weight:800; }
-            .t-big{ font-size:16px; font-weight:900; }
+            .t-big{ font-size:14px; font-weight:900; }
             @media print{
               body{ padding:0; }
             }
@@ -490,11 +488,10 @@
           <meta name="viewport" content="width=device-width, initial-scale=1.0" />
           <title>Ticket Preview</title>
           <style>
-            @page{ size:58mm auto; margin:0; }
-            body{ margin:0; padding:6px; }
+            body{ margin:0; padding:12px; }
             .ticket{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-              font-size:18px; font-weight:900; color:#111; line-height:1.35; width:280px; }
-            .t-title{ font-weight:900; text-align:center; font-size:19px; }
+              font-size:12px; color:#111; line-height:1.35; width:280px; }
+            .t-title{ font-weight:900; text-align:center; font-size:13px; }
             .t-center{ text-align:center; }
             .t-row{ display:flex; justify-content:space-between; gap:10px; }
             .t-hr{ border-top:1px dashed #999; margin:8px 0; }
@@ -502,7 +499,7 @@
             .t-item{ display:flex; justify-content:space-between; gap:10px; }
             .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
             .t-item .r{ flex:0 0 auto; font-weight:800; }
-            .t-big{ font-size:16px; font-weight:900; }
+            .t-big{ font-size:14px; font-weight:900; }
             @media print{ body{ padding:0; } }
           </style>
         </head>

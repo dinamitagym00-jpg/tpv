@@ -66,9 +66,6 @@ function dpDefaultState(){
       recentSearches: [],
       recentProducts: []
     }
-    expenses: [],
-    expenseCategories: ['servicios','renta','sueldos','insumos','mantenimiento','otros'],
-
   };
 }
 
