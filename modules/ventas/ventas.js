@@ -381,10 +381,11 @@
             body{ margin:0; padding:12px; }
             .ticket{
               font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-              font-size:12px; color:#111; line-height:1.35;
+              font-size:14px; font-weight:800; color:#111; line-height:1.35;
               width: 280px;
             }
-            .t-title{ font-weight:900; text-align:center; font-size:13px; }
+            .ticket *{ font-weight:800; }
+            .t-title{ font-weight:900; text-align:center; font-size:15px; }
             .t-center{ text-align:center; }
             .t-row{ display:flex; justify-content:space-between; gap:10px; }
             .t-hr{ border-top:1px dashed #999; margin:8px 0; }
@@ -392,7 +393,7 @@
             .t-item{ display:flex; justify-content:space-between; gap:10px; }
             .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
             .t-item .r{ flex:0 0 auto; font-weight:800; }
-            .t-big{ font-size:14px; font-weight:900; }
+            .t-big{ font-size:16px; font-weight:900; }
             @media print{
               body{ padding:0; }
             }
@@ -490,8 +491,8 @@
           <style>
             body{ margin:0; padding:12px; }
             .ticket{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-              font-size:12px; color:#111; line-height:1.35; width:280px; }
-            .t-title{ font-weight:900; text-align:center; font-size:13px; }
+              font-size:14px; font-weight:800; color:#111; line-height:1.35; width:280px; }
+            .t-title{ font-weight:900; text-align:center; font-size:15px; }
             .t-center{ text-align:center; }
             .t-row{ display:flex; justify-content:space-between; gap:10px; }
             .t-hr{ border-top:1px dashed #999; margin:8px 0; }
@@ -499,7 +500,7 @@
             .t-item{ display:flex; justify-content:space-between; gap:10px; }
             .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
             .t-item .r{ flex:0 0 auto; font-weight:800; }
-            .t-big{ font-size:14px; font-weight:900; }
+            .t-big{ font-size:16px; font-weight:900; }
             @media print{ body{ padding:0; } }
           </style>
         </head>
