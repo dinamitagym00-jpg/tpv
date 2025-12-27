@@ -63,37 +63,16 @@
     return p ? p.name : pid;
   }
 
-function openPrintWindow(html, title){
-  // Preferir impresión con iframe (mejor en tablet/Android)
-  if(typeof window.DP_PRINT_DOC === 'function'){
-    window.DP_PRINT_DOC(html, title || "Ticket");
-    return;
+  function openPrintWindow(html, title){
+    const w = window.open("", "_blank", "width=420,height=700");
+    if(!w){ alert("Tu navegador bloqueó la ventana emergente."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.document.title = title || "Ticket";
+    w.focus();
+    w.print();
   }
-  const w = window.open('', '_blank');
-  if(!w){
-    alert('No se pudo abrir la ventana de impresión. Revisa el bloqueo de ventanas emergentes.');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(() => {
-    try{ w.print(); }catch(e){}
-    try{ w.close(); }catch(e){}
-  }, 350);
-}
-  const w = window.open('', '_blank');
-  if(!w){
-    alert('No se pudo abrir la ventana de impresión. Revisa bloqueadores de popups.');
-    return;
-  }
-  w.document.open();
-  w.document.write(html);
-  w.document.close();
-  w.focus();
-  setTimeout(()=>{ try{ w.print(); }catch(e){} try{ w.close(); }catch(e){} }, 350);
-}
 
   function buildTicketHtmlFromSale(sale){
     const cfg = getConfig();
@@ -149,7 +128,7 @@ function openPrintWindow(html, title){
 <style>
   body{ font-family: ui-monospace, Menlo, Consolas, monospace; padding:12px; }
   .ticket{ max-width:340px; }
-  pre{ white-space:pre-wrap; font-size:14px; font-weight:700; line-height:1.25; margin:0; }
+  pre{ white-space:pre-wrap; font-size:12px; line-height:1.25; margin:0; }
   @media print{ body{ padding:0; } }
 </style>
 </head>
