@@ -408,14 +408,19 @@
       </html>
     `;
 
-    const w = window.open("", "_blank", "width=360,height=640");
-    if(!w){
-      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
-      return;
+    if(window.DG && typeof window.DG.printHtml === "function"){
+      window.DG.printHtml(html);
+    }else{
+      const w = window.open("", "_blank", "width=360,height=640");
+      if(!w){
+        elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
+        return;
+      }
+      w.document.open();
+      w.document.write(html);
+      w.document.close();
+      setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
     }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
   }
 
   function doSell(){

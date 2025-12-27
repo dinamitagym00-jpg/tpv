@@ -1,3 +1,49 @@
+
+// ====== DG: impresión compatible con tablet (sin popups) ======
+window.DG = window.DG || {};
+window.DG.printHtml = function(html){
+  try{
+    const iframeId = "dg_print_iframe";
+    let iframe = document.getElementById(iframeId);
+    if(!iframe){
+      iframe = document.createElement("iframe");
+      iframe.id = iframeId;
+      iframe.setAttribute("aria-hidden","true");
+      iframe.style.position = "fixed";
+      iframe.style.right = "0";
+      iframe.style.bottom = "0";
+      iframe.style.width = "0";
+      iframe.style.height = "0";
+      iframe.style.border = "0";
+      iframe.style.visibility = "hidden";
+      document.body.appendChild(iframe);
+    }
+    const doc = iframe.contentWindow.document;
+    doc.open();
+    doc.write(html);
+    doc.close();
+
+    // En algunos navegadores móviles, el evento onload no siempre dispara con document.write,
+    // por eso usamos un pequeño delay.
+    setTimeout(()=>{
+      try{
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }catch(err){
+        console.warn("No se pudo imprimir desde iframe, intentando ventana nueva...", err);
+        const w = window.open("", "_blank");
+        if(!w){ alert("No se pudo abrir vista de impresión. Revisa permisos de ventanas emergentes."); return; }
+        w.document.open(); w.document.write(html); w.document.close();
+        setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
+      }
+    }, 300);
+  }catch(e){
+    console.error(e);
+    alert("No se pudo generar la impresión en este dispositivo.");
+  }
+};
+// =============================================================
+
 try{ dpEnsureSeedData(); }catch(e){ console.warn(e); }
 try{ dpApplyTheme(); }catch(e){ console.warn(e); }
 try{ dpRenderBranding(); }catch(e){ console.warn(e); }
