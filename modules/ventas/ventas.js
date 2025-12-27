@@ -408,15 +408,8 @@
       </html>
     `;
 
-    const w = window.open("", "_blank", "width=360,height=640");
-    if(!w){
-      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
-      return;
-    }
-    w.document.open();
-    w.document.write(html);
-    w.document.close();
-  }
+    dpPrintHTML(html);
+}
 
   function doSell(){
     const v = canSell();
@@ -477,43 +470,8 @@
     // printing preview uses the PREVIEW ticket, but we print the HTML in preview area
     // We'll open window with the current preview HTML
     const previewHtml = elTicketPreview.innerHTML;
-    const w = window.open("", "_blank", "width=360,height=640");
-    if(!w){
-      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
-      return;
-    }
-    w.document.open();
-    w.document.write(`
-      <html>
-        <head><meta charset="UTF-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <title>Ticket Preview</title>
-          <style>
-            body{ margin:0; padding:12px; }
-            .ticket{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-              font-size:14px; font-weight:800; color:#111; line-height:1.35; width:280px; }
-            .t-title{ font-weight:900; text-align:center; font-size:15px; }
-            .t-center{ text-align:center; }
-            .t-row{ display:flex; justify-content:space-between; gap:10px; }
-            .t-hr{ border-top:1px dashed #999; margin:8px 0; }
-            .t-items{ display:flex; flex-direction:column; gap:4px; }
-            .t-item{ display:flex; justify-content:space-between; gap:10px; }
-            .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-            .t-item .r{ flex:0 0 auto; font-weight:800; }
-            .t-big{ font-size:16px; font-weight:900; }
-            @media print{ body{ padding:0; } }
-          </style>
-        </head>
-        <body>
-          ${previewHtml}
-          <script>
-            window.onload = () => { window.print(); window.onafterprint = () => window.close(); };
-          <\/script>
-        </body>
-      </html>
-    `);
-    w.document.close();
-  }
+    dpPrintHTML(html);
+}
 
   // Init
   renderClients();
@@ -543,3 +501,46 @@
     if(elPayMethod){ elPayMethod.value = "efectivo"; }
     if(elRequireTicket){ elRequireTicket.checked = false; }
   })();
+// === Print helper (works better on Android/Tablet) ===
+function dpPrintHTML(html){
+  // Remove any previous print frame
+  const prev = document.getElementById("dp-print-frame");
+  if(prev) prev.remove();
+
+  const iframe = document.createElement("iframe");
+  iframe.id = "dp-print-frame";
+  iframe.setAttribute("aria-hidden", "true");
+  // Keep it in DOM but off-screen (Android Chrome prints blank if iframe is display:none)
+  iframe.style.position = "fixed";
+  iframe.style.right = "0";
+  iframe.style.bottom = "0";
+  iframe.style.width = "1px";
+  iframe.style.height = "1px";
+  iframe.style.opacity = "0";
+  iframe.style.pointerEvents = "none";
+  iframe.style.border = "0";
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentDocument || iframe.contentWindow.document;
+  doc.open();
+  doc.write(html);
+  doc.close();
+
+  const tryPrint = () => {
+    try{
+      iframe.contentWindow.focus();
+      // Some Android devices need a tiny delay after focus
+      setTimeout(()=>iframe.contentWindow.print(), 50);
+    }catch(err){
+      console.warn("Print error", err);
+    }
+    // Cleanup (onafterprint is unreliable on mobile)
+    setTimeout(()=>{ try{ iframe.remove(); }catch(e){} }, 2000);
+  };
+
+  // Wait a bit to ensure layout is ready
+  iframe.onload = () => setTimeout(tryPrint, 200);
+  setTimeout(tryPrint, 450);
+}
+
+

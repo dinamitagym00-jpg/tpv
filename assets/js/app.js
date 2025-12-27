@@ -8,10 +8,6 @@ try{ dpRenderBranding(); }catch(e){ console.warn(e); }
 */
 const content = document.getElementById('content');
 
-// Cache-buster to avoid stale module JS/HTML being served by the browser/device.
-// Update this value whenever we publish a new zip.
-const DP_BUILD = "2025-12-27-ventasfix-1";
-
 const menu = document.getElementById('menu');
 const menuToggle = document.getElementById('dp-menuToggle');
 
@@ -41,17 +37,13 @@ function dpClearModuleAssets(){
 async function loadModule(name){
   dpClearModuleAssets();
 
-  const html = await fetch(`modules/${name}/${name}.html?v=${DP_BUILD}`, { cache:"no-store" }).then(r=>r.text());
+  const html = await fetch(`modules/${name}/${name}.html`, { cache:"no-store" }).then(r=>r.text());
   content.innerHTML = html;
   document.querySelectorAll('#menu button[data-module]').forEach(x=>x.classList.toggle('active', x.dataset.module===name));
 
   const script = document.createElement('script');
-  script.src = `modules/${name}/${name}.js?v=${DP_BUILD}`;
+  script.src = `modules/${name}/${name}.js`;
   script.setAttribute("data-dp-module-js","1");
-  script.onerror = () => {
-    console.error(`No se pudo cargar el módulo: ${name}`);
-    alert(`No se pudo cargar el módulo: ${name}.\n\nTip: recarga la página o borra caché.`);
-  };
   document.body.appendChild(script);
 }
 
