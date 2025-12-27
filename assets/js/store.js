@@ -833,3 +833,71 @@ function dpRenderBranding(){
     }
   }
 }
+
+// ------------------------------------------------------------
+// IMPRESIÓN (compat tablet / android): imprime con iframe oculto
+// ------------------------------------------------------------
+(function(){
+  function ensureDoc(html){
+    // si ya viene un <html> completo lo regresamos tal cual
+    if(/<html[\s>]/i.test(html)) return html;
+    return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>${html}</body></html>`;
+  }
+
+  window.DP_PRINT_DOC = function(title, htmlDoc){
+    try{
+      const doc = ensureDoc(htmlDoc);
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('aria-hidden','true');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      iframe.style.opacity = '0';
+      iframe.style.pointerEvents = 'none';
+      document.body.appendChild(iframe);
+
+      const win = iframe.contentWindow;
+      const d = win.document;
+      d.open();
+      d.write(doc);
+      d.close();
+
+      const cleanup = () => {
+        try{ iframe.remove(); }catch(_e){}
+      };
+
+      // imprimir con pequeño delay para Android/Tablet
+      setTimeout(() => {
+        try{
+          win.focus();
+          win.print();
+        }catch(_e){}
+      }, 250);
+
+      // afterprint no siempre dispara en Android; ponemos doble seguro
+      try{ win.onafterprint = () => setTimeout(cleanup, 200); }catch(_e){}
+      setTimeout(cleanup, 7000);
+
+      return true;
+    }catch(e){
+      console.error('DP_PRINT_DOC error', e);
+      // fallback: ventana nueva
+      try{
+        const w = window.open('', '_blank');
+        if(!w) return false;
+        w.document.open();
+        w.document.write(ensureDoc(htmlDoc));
+        w.document.close();
+        w.focus();
+        w.print();
+        setTimeout(() => { try{ w.close(); }catch(_e){} }, 800);
+        return true;
+      }catch(_e){
+        return false;
+      }
+    }
+  };
+})();
