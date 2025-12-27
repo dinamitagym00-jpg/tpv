@@ -313,14 +313,281 @@ const lines = [
   }
 
   function openPrintWindow(html, title){
-    if(window.DG && typeof window.DG.printHtml === "function") {
-      window.DG.printHtml(html);
-      return;
-    }
-    const w = window.open("", "_blank", "width=420,height=700");
-    if(!w){ alert("No se pudo abrir la impresión. Habilita ventanas emergentes o imprime desde PC."); return; }
+    const w = window.open("", "_blank", "width=400,height=650");
+    if(!w){ alert("Tu navegador bloqueó la ventana emergente."); return; }
     w.document.open();
     w.document.write(html);
     w.document.close();
-    setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
+    w.document.title = title || "Ticket";
+    w.focus();
+    w.print();
+  }
+
+  // ---------- Actions ----------
+  function resetForm(){
+    mClientSearch.value = "";
+    mClientId.value = "";
+    mClientPicked.textContent = "";
+    showClientPicker([]);
+
+    mStart.value = new Date().toISOString().slice(0,10);
+    syncPlanFields();
+    mNotes.value = "";
+    mStatus.textContent = "";
+    mTicketPreview.textContent = "Sin ticket.";
+    lastTicketHtml = "";
+    mPrint.disabled = true;
+  }
+
+  function ensureClientSelected(){
+    if(mClientId.value) return true;
+    const typed = (mClientSearch.value||"").trim();
+    if(!typed){
+      alert("Selecciona un cliente.");
+      return false;
+    }
+    if(typed.toLowerCase().includes("general") || typed.toLowerCase()==="gen"){
+      mClientId.value = "GEN";
+      return true;
+    }
+    alert("Selecciona el cliente desde el buscador (picker).");
+    return false;
+  }
+
+  function saveOnly(){
+    if(!ensureClientSelected()) return;
+    const plan = dpFindMembershipPlanById(mPlan.value);
+    if(!plan){ alert("Selecciona un tipo de membresía."); return; }
+
+    dpCreateMembership({
+      clientId: mClientId.value,
+      planId: plan.id,
+      planName: plan.name,
+      days: Number(plan.days||0),
+      startDate: mStart.value,
+      notes: (mNotes.value||"").trim(),
+      price: Number(plan.price||0),
+      saleTicketId: ""
+    });
+    mStatus.textContent = "Membresía guardada (sin cobro).";
+    renderList();
+  }
+
+  function charge(){
+    if(!ensureClientSelected()) return;
+    const plan = dpFindMembershipPlanById(mPlan.value);
+    if(!plan){ alert("Selecciona un tipo de membresía."); return; }
+
+    const ticketId = dpChargeMembership({
+      clientId: mClientId.value,
+      planId: plan.id,
+      startDate: mStart.value,
+      notes: (mNotes.value||"").trim()
+    });
+
+    mStatus.textContent = "Membresía cobrada. Ticket: " + (ticketId||"");
+    renderList();
+
+    if(mMakeTicket.checked && ticketId){
+      const sale = (state().sales||[]).find(s=>s.id===ticketId);
+      if(sale){
+        const t = buildTicketHtmlFromSale(sale);
+        mTicketPreview.textContent = t.pre;
+        lastTicketHtml = t.html;
+        lastTicketTitle = t.title;
+        mPrint.disabled = false;
+      }
+    }else{
+      mTicketPreview.textContent = "Sin ticket.";
+      lastTicketHtml = "";
+      mPrint.disabled = true;
+    }
+  }
+
+  function pillClass(endISO){
+    const now = new Date();
+    const e = new Date(endISO);
+    const diffDays = (e - now) / 86400000;
+    if(diffDays < 0) return "red";
+    if(diffDays <= 5) return "orange";
+    return "green";
+  }
+
+  function renderList(){
+    const st = state();
+    const q = (mSearch.value||"").trim().toLowerCase();
+    const from = mFrom.value ? new Date(mFrom.value) : null;
+    const to = mTo.value ? new Date(mTo.value) : null;
+
+    let list = st.memberships || [];
+
+    if(q){
+      list = list.filter(m=>{
+        const name = getClientName(m.clientId).toLowerCase();
+        return (m.id||"").toLowerCase().includes(q) ||
+               (m.clientId||"").toLowerCase().includes(q) ||
+               name.includes(q) ||
+               (m.saleTicketId||"").toLowerCase().includes(q) ||
+               (m.planName||"").toLowerCase().includes(q);
+      });
+    }
+    if(from){
+      list = list.filter(m=> new Date(m.start) >= from);
+    }
+    if(to){
+      const t = new Date(to);
+      t.setHours(23,59,59,999);
+      list = list.filter(m=> new Date(m.start) <= t);
+    }
+
+    mList.innerHTML = "";
+    if(!list.length){
+      mEmpty.style.display = "block";
+      return;
+    }
+    mEmpty.style.display = "none";
+
+    list.slice(0, 400).forEach(m=>{
+      const div = document.createElement("div");
+      div.className = "mcard";
+
+      const left = document.createElement("div");
+      left.className = "mleft";
+      const cls = pillClass(m.end);
+      left.innerHTML = `
+        <div class="mtitle">${escapeHtml(getClientName(m.clientId))}</div>
+        <div class="msub">
+          <span class="pill ${cls}">${escapeHtml(m.planName || "Membresía")}</span>
+          <span class="pill">Inicio: ${m.start}</span>
+          <span class="pill">Fin: ${m.end}</span>
+          <span class="pill">${m.days} días</span>
+          <span class="pill">${fmtMoney(m.price||0)}</span>
+          ${m.saleTicketId ? `<span class="pill">Ticket: ${m.saleTicketId}</span>` : `<span class="pill">Sin cobro</span>`}
+          <span class="pill">ID: ${m.id}</span>
+        </div>
+        ${m.notes ? `<div class="msub"><span class="pill">Nota: ${escapeHtml(m.notes)}</span></div>` : ""}
+      `;
+
+      const actions = document.createElement("div");
+      actions.className = "mactions";
+
+      const reprint = document.createElement("button");
+      reprint.className = "btn btn--ghost";
+      reprint.textContent = "Reimprimir ticket";
+      reprint.disabled = !m.saleTicketId;
+      reprint.onclick = ()=>{
+        const sale = (state().sales||[]).find(s=>s.id===m.saleTicketId);
+        if(!sale){ alert("No se encontró la venta ligada."); return; }
+        const t = buildTicketHtmlFromSale(sale);
+        openPrintWindow(t.html, t.title);
+      };
+
+      const del = document.createElement("button");
+      del.className = "btn";
+      del.textContent = "Borrar membresía";
+      del.onclick = ()=>{
+        if(!confirm(`¿Borrar membresía ${m.id}? (No borra la venta ligada)`)) return;
+        dpDeleteMembership(m.id);
+        renderList();
+      };
+
+      actions.appendChild(reprint);
+      actions.appendChild(del);
+
+      div.appendChild(left);
+      div.appendChild(actions);
+      mList.appendChild(div);
+    });
+  }
+
+  function exportCsv(){
+    const st = state();
+    const rows = [["id","clientId","clientName","planId","planName","days","start","end","price","saleTicketId","notes"]];
+    (st.memberships||[]).forEach(m=>{
+      rows.push([
+        m.id,
+        m.clientId,
+        getClientName(m.clientId),
+        m.planId,
+        m.planName,
+        m.days,
+        m.start,
+        m.end,
+        m.price,
+        m.saleTicketId,
+        (m.notes||"").replaceAll("\n"," ")
+      ]);
+    });
+    const csv = rows.map(r=>r.map(x=>`"${String(x??"").replaceAll('"','""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], {type:"text/csv;charset=utf-8"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `membresias_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function exportPdf(){
+    const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<title>Membresías</title>
+<style>
+  body{ font-family: Arial, sans-serif; padding:16px; }
+  h1{ margin:0 0 10px 0; }
+  .item{ border:1px solid #ddd; border-radius:10px; padding:10px; margin-bottom:10px; }
+  .pill{ border:1px solid #ddd; border-radius:999px; padding:2px 8px; }
+</style>
+</head>
+<body>
+<h1>Membresías</h1>
+${Array.from(mList.children).map(n=>`<div class="item">${n.querySelector(".mleft")?.innerHTML || ""}</div>`).join("")}
+<script>window.focus();</script>
+</body>
+</html>`;
+    const w = window.open("", "_blank");
+    if(!w){ alert("Tu navegador bloqueó la ventana emergente."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    w.print();
+  }
+
+  // --- Events ---
+  mcToggle.addEventListener("click", ()=>toggleCatalog());
+  mOpenCatalog.addEventListener("click", ()=>toggleCatalog(true));
+  mcClear.addEventListener("click", resetCatalogForm);
+  mcForm.addEventListener("submit", saveCatalog);
+
+  mClientSearch.addEventListener("input", onClientSearch);
+
+  mPlan.addEventListener("change", syncPlanFields);
+  mStart.addEventListener("change", recalcEnd);
+
+  mClear.addEventListener("click", ()=>{ resetForm(); renderList(); });
+  mSave.addEventListener("click", saveOnly);
+  mCharge.addEventListener("click", charge);
+
+  mPrint.addEventListener("click", ()=>{
+    if(!lastTicketHtml) return;
+    openPrintWindow(lastTicketHtml, lastTicketTitle);
+  });
+
+  mSearch.addEventListener("input", renderList);
+  mFrom.addEventListener("change", renderList);
+  mTo.addEventListener("change", renderList);
+  mExportCsv.addEventListener("click", exportCsv);
+  mExportPdf.addEventListener("click", exportPdf);
+
+  // Init
+  if(typeof dpEnsureSeedData === "function"){ try{ dpEnsureSeedData(); }catch(e){} }
+  renderCatalog();
+  loadPlans();
+  mStart.value = new Date().toISOString().slice(0,10);
+  syncPlanFields();
+  resetForm();
+  renderList();
 })();
