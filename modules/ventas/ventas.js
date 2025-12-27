@@ -408,8 +408,15 @@
       </html>
     `;
 
-    // Impresión robusta (tablet/móvil)
-    safePrintHTML(html, { title: 'Ticket' });
+    const w = window.open("", "_blank", "width=360,height=640");
+    if(!w){
+      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
+      return;
+    }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+  }
 
   function doSell(){
     const v = canSell();
@@ -458,114 +465,54 @@
     renderCatalog();
   }
 
-  
-  // Impresión robusta (especialmente Android/Tablet): usa iframe oculto en vez de window.open
-  function safePrintHTML(html, { title = 'Ticket', afterPrint } = {}) {
-    try {
-      // 1) Intento con iframe (mejor compatibilidad móvil)
-      const iframe = document.createElement('iframe');
-      iframe.setAttribute('aria-hidden', 'true');
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      iframe.style.opacity = '0';
-      iframe.style.pointerEvents = 'none';
-      iframe.srcdoc = html;
-      document.body.appendChild(iframe);
-
-      const cleanup = () => {
-        try { iframe.remove(); } catch (e) {}
-        try { afterPrint && afterPrint(); } catch (e) {}
-      };
-
-      iframe.onload = () => {
-        // Asegura que el contenido se renderice antes de imprimir
-        setTimeout(() => {
-          try {
-            const w = iframe.contentWindow;
-            if (!w) throw new Error('No contentWindow');
-            w.document.title = title;
-            w.focus();
-            // Algunos navegadores disparan afterprint, otros no.
-            const fallbackTimer = setTimeout(cleanup, 1500);
-            w.onafterprint = () => { clearTimeout(fallbackTimer); cleanup(); };
-            w.print();
-          } catch (err) {
-            // 2) Fallback: nueva ventana
-            try {
-              const win = window.open('', '_blank');
-              if (!win) throw err;
-              win.document.open();
-              win.document.write(html);
-              win.document.close();
-              win.focus();
-              const t = setTimeout(() => { try { win.close(); } catch(e) {} }, 2000);
-              win.onafterprint = () => { clearTimeout(t); try { win.close(); } catch(e) {} };
-              win.print();
-              cleanup();
-            } catch (e) {
-              cleanup();
-              alert('No se pudo abrir la impresión. Revisa bloqueador de ventanas emergentes o intenta en Chrome.');
-            }
-          }
-        }, 50);
-      };
-      return true;
-    } catch (e) {
-      return false;
+  function handlePrint(){
+    // Print last sale if exists, else print preview (requires cart preview already)
+    const st = state();
+    if(lastSaleId){
+      printTicketBySaleId(lastSaleId);
+      return;
     }
-  }
-
-function handlePrint() {
-    try {
-      if (!elTicketPreview) return;
-      const ticketInner = (elTicketPreview.innerHTML || '').trim();
-      if (!ticketInner || ticketInner.toLowerCase().includes('sin ticket')) {
-        alert('No hay ticket para imprimir.');
-        return;
-      }
-
-      const html = `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Ticket</title>
-  <style>
-    /* Estilo de impresión tipo 58mm */
-    * { box-sizing: border-box; }
-    body { margin: 0; padding: 0; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; }
-    .ticket-wrap { width: 58mm; margin: 0 auto; padding: 6mm 3mm; }
-    .ticket { font-size: 14px; font-weight: 700; line-height: 1.25; color: #000; }
-    .ticket small { font-size: 12px; font-weight: 700; }
-    .ticket .muted { opacity: 0.9; }
-    .ticket hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
-    .ticket table { width: 100%; border-collapse: collapse; }
-    .ticket td { vertical-align: top; padding: 2px 0; }
-    .ticket .right { text-align: right; }
-    .ticket .center { text-align: center; }
-    @media print {
-      @page { size: 58mm auto; margin: 0; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .ticket-wrap { padding: 0; }
+    // if no last sale, try preview
+    previewTicketFromCart();
+    // printing preview uses the PREVIEW ticket, but we print the HTML in preview area
+    // We'll open window with the current preview HTML
+    const previewHtml = elTicketPreview.innerHTML;
+    const w = window.open("", "_blank", "width=360,height=640");
+    if(!w){
+      elStatus.textContent = "Bloqueo de pop-ups: habilita ventanas emergentes para imprimir.";
+      return;
     }
-  </style>
-</head>
-<body>
-  <div class="ticket-wrap">
-    <div class="ticket">${ticketInner}</div>
-  </div>
-</body>
-</html>`;
-
-      safePrintHTML(html, { title: 'Ticket' });
-    } catch (e) {
-      console.error(e);
-      alert('No se pudo imprimir el ticket.');
-    }
+    w.document.open();
+    w.document.write(`
+      <html>
+        <head><meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Ticket Preview</title>
+          <style>
+            body{ margin:0; padding:12px; }
+            .ticket{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+              font-size:14px; font-weight:800; color:#111; line-height:1.35; width:280px; }
+            .t-title{ font-weight:900; text-align:center; font-size:15px; }
+            .t-center{ text-align:center; }
+            .t-row{ display:flex; justify-content:space-between; gap:10px; }
+            .t-hr{ border-top:1px dashed #999; margin:8px 0; }
+            .t-items{ display:flex; flex-direction:column; gap:4px; }
+            .t-item{ display:flex; justify-content:space-between; gap:10px; }
+            .t-item .l{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+            .t-item .r{ flex:0 0 auto; font-weight:800; }
+            .t-big{ font-size:16px; font-weight:900; }
+            @media print{ body{ padding:0; } }
+          </style>
+        </head>
+        <body>
+          ${previewHtml}
+          <script>
+            window.onload = () => { window.print(); window.onafterprint = () => window.close(); };
+          <\/script>
+        </body>
+      </html>
+    `);
+    w.document.close();
   }
 
   // Init
