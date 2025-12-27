@@ -1,385 +1,326 @@
-/* Dinamita POS v0 – Módulo Membresías
-   Fix: el archivo estaba truncado (SyntaxError) y por eso el súper buscador
-   de clientes no funcionaba en tablet/cel.
+/* Membresías - Dinamita POS v0 (restructurado)
+   - Catálogo editable: nombre, días, precio
+   - Cliente con súper buscador (picker)
+   - Cobro = venta tipo servicio (sin inventario) + registro de membresía ligado a ticket
 */
-
 (function(){
-  "use strict";
+  const $ = (id)=>document.getElementById(id);
 
-  // Helpers
-  const $ = (sel, root=document) => root.querySelector(sel);
-  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
-  const on = (el, ev, fn, opts) => el && el.addEventListener(ev, fn, opts);
+  // Catalog
+  const mcToggle = $("mc-toggle");
+  const mcCard = $("mc-card");
+  const mcForm = $("mc-form");
+  const mcId = $("mc-id");
+  const mcName = $("mc-name");
+  const mcDays = $("mc-days");
+  const mcPrice = $("mc-price");
+  const mcClear = $("mc-clear");
+  const mcStatus = $("mc-status");
+  const mcList = $("mc-list");
 
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const toISODate = (d) => `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`;
-  const parseISO = (s) => {
-    if (!s) return null;
-    const d = new Date(s);
-    return Number.isNaN(d.getTime()) ? null : d;
-  };
-  const addDays = (isoDate, days) => {
-    const d = parseISO(isoDate);
-    if (!d) return "";
-    d.setDate(d.getDate() + (Number(days)||0));
-    return toISODate(d);
-  };
+  // Enrollment
+  const mClientSearch = $("m-clientSearch");
+  const mClientPick = $("m-clientPick");
+  const mClientId = $("m-clientId");
+  const mClientPicked = $("m-clientPicked");
 
-  // DOM refs
-  const clientQuery = $("#m-clientQuery");
-  const clientPick  = $("#m-clientPick");
-  const selType     = $("#m-type");
-  const inpDays     = $("#m-days");
-  const inpStart    = $("#m-start");
-  const inpEnd      = $("#m-end");
-  const inpPrice    = $("#m-price");
-  const inpNotes    = $("#m-notes");
-  const chkTicket   = $("#m-generateTicket");
-  const ticketBox   = $("#m-ticketPreview");
-  const btnClear    = $("#m-btnClear");
-  const btnSave     = $("#m-btnSave");
-  const btnCharge   = $("#m-btnCharge");
-  const btnPrint    = $("#m-btnPrint");
-  const btnCatalog  = $("#m-btnCatalog");
+  const mPlan = $("m-plan");
+  const mOpenCatalog = $("m-openCatalog");
+  const mPlanHint = $("m-planHint");
+  const mDays = $("m-days");
+  const mStart = $("m-start");
+  const mEnd = $("m-end");
+  const mPrice = $("m-price");
+  const mNotes = $("m-notes");
+  const mStatus = $("m-status");
 
-  let selectedClientId = null;
-  let lastTicketHTML = "";
+  const mClear = $("m-clear");
+  const mSave = $("m-save");
+  const mCharge = $("m-charge");
 
-  function getClients(){
-    const st = window.dpGetState?.();
-    return st?.clients || [];
+  const mMakeTicket = $("m-makeTicket");
+  const mPrint = $("m-print");
+  const mTicketPreview = $("m-ticketPreview");
+
+  // List
+  const mSearch = $("m-search");
+  const mFrom = $("m-from");
+  const mTo = $("m-to");
+  const mExportCsv = $("m-exportCsv");
+  const mExportPdf = $("m-exportPdf");
+  const mList = $("m-list");
+  const mEmpty = $("m-empty");
+
+  let lastTicketHtml = "";
+  let lastTicketTitle = "Ticket";
+
+  function state(){ return dpGetState(); }
+  function fmtMoney(n){ return dpFmtMoney ? dpFmtMoney(n) : ("$"+Number(n||0).toFixed(2)); }
+  function escapeHtml(s){
+    return String(s)
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;");
   }
 
-  function getCatalog(){
-    return window.dpGetMembershipCatalog?.() || [];
+  // ---------- Catalog ----------
+  function toggleCatalog(show=null){
+    const isOpen = mcCard.style.display !== "none";
+    const next = show===null ? !isOpen : !!show;
+    mcCard.style.display = next ? "block" : "none";
   }
 
-  function setPickVisible(visible){
-    if (!clientPick) return;
-    clientPick.classList.toggle("hidden", !visible);
+  function resetCatalogForm(){
+    mcId.value = "";
+    mcName.value = "";
+    mcDays.value = 30;
+    mcPrice.value = 0;
+    mcStatus.textContent = "";
   }
 
-  function renderClientPick(q){
-    if (!clientPick) return;
-    const query = (q||"").trim().toLowerCase();
-    if (!query){
-      clientPick.innerHTML = "";
-      setPickVisible(false);
-      return;
-    }
-
-    const list = getClients()
-      .map(c => ({
-        ...c,
-        _hay: `${c.name||""} ${c.id||""} ${c.phone||""}`.toLowerCase()
-      }))
-      .filter(c => c._hay.includes(query))
-      .slice(0, 10);
-
-    if (!list.length){
-      clientPick.innerHTML = `<div class="pickItem muted">Sin resultados</div>`;
-      setPickVisible(true);
-      return;
-    }
-
-    clientPick.innerHTML = list.map(c => {
-      const phone = c.phone ? ` • ${c.phone}` : "";
-      const id = c.id ? `<span class="muted">(${c.id})</span>` : "";
-      return `
-        <button type="button" class="pickItem" data-id="${c.id||""}">
-          <div class="pickName">${escapeHTML(c.name||"Cliente")} ${id}</div>
-          <div class="pickMeta muted">${escapeHTML(phone.replace(" • ", ""))}</div>
-        </button>
+  function renderCatalog(){
+    const list = dpGetMembershipCatalog();
+    mcList.innerHTML = "";
+    list.slice(0, 500).forEach(p=>{
+      const div = document.createElement("div");
+      div.className = "citem";
+      div.innerHTML = `
+        <div class="cleft">
+          <div class="ctitle">${escapeHtml(p.name || "")}</div>
+          <div class="cmeta">
+            <span class="pill">${Number(p.days||0)} días</span>
+            <span class="pill">${fmtMoney(p.price||0)}</span>
+            <span class="pill">ID: ${p.id}</span>
+          </div>
+        </div>
+        <div class="cactions"></div>
       `;
-    }).join("");
+      const actions = div.querySelector(".cactions");
 
-    // Click (pointerdown para que funcione en tablet aunque el input pierda focus)
-    $$(".pickItem", clientPick).forEach(btn => {
-      on(btn, "pointerdown", (ev)=>{
-        ev.preventDefault();
-        const id = btn.getAttribute("data-id");
-        const c = getClients().find(x => String(x.id) === String(id));
-        if (!c) return;
-        selectedClientId = c.id;
-        if (clientQuery) clientQuery.value = c.name || "";
-        clientPick.innerHTML = "";
-        setPickVisible(false);
-        // deja el cursor listo para seguir
-        setTimeout(()=> clientQuery?.focus?.(), 0);
-      });
+      const edit = document.createElement("button");
+      edit.className = "btn btn--ghost";
+      edit.textContent = "Editar";
+      edit.onclick = ()=>{
+        mcId.value = p.id;
+        mcName.value = p.name || "";
+        mcDays.value = Number(p.days||0) || 1;
+        mcPrice.value = Number(p.price||0) || 0;
+        mcStatus.textContent = "Editando: " + p.id;
+        window.scrollTo({top:0, behavior:"smooth"});
+      };
+
+      const del = document.createElement("button");
+      del.className = "btn";
+      del.textContent = "Borrar";
+      del.onclick = ()=>{
+        if(!confirm(`¿Borrar tipo "${p.name}"?`)) return;
+        dpDeleteMembershipPlan(p.id);
+        renderCatalog();
+        loadPlans();
+      };
+
+      actions.appendChild(edit);
+      actions.appendChild(del);
+      mcList.appendChild(div);
     });
-
-    setPickVisible(true);
   }
 
-  function escapeHTML(s){
-    return String(s||"")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+  function saveCatalog(e){
+    e.preventDefault();
+    const name = (mcName.value||"").trim();
+    const days = Number(mcDays.value||0);
+    const price = Number(mcPrice.value||0);
+    if(!name){ mcStatus.textContent = "Nombre requerido."; return; }
+    if(!Number.isFinite(days) || days<=0){ mcStatus.textContent = "Días inválidos."; return; }
+    if(!Number.isFinite(price) || price<0){ mcStatus.textContent = "Precio inválido."; return; }
+
+    if(mcId.value){
+      dpUpdateMembershipPlan(mcId.value, { name, days, price });
+      mcStatus.textContent = "Tipo actualizado.";
+    }else{
+      dpAddMembershipPlan({ name, days, price });
+      mcStatus.textContent = "Tipo agregado.";
+    }
+    renderCatalog();
+    loadPlans();
+    resetCatalogForm();
   }
 
-  function fillCatalog(){
-    if (!selType) return;
-    const cat = getCatalog();
-    selType.innerHTML = `
-      <option value="">Selecciona…</option>
-      ${cat.map(p => `<option value="${p.id}">${escapeHTML(p.name)} — $${Number(p.price||0).toFixed(2)}</option>`).join("")}
-    `;
+  // ---------- Client search ----------
+  function getClients(){
+    const st = state();
+    const base = (st.clients && st.clients.length) ? st.clients : [{id:"GEN", name:"Cliente General", phone:""}];
+    return base.map(c=>({
+      ...c,
+      _search: `${(c.name||"").toLowerCase()} ${(c.phone||"").toLowerCase()} ${(c.id||"").toLowerCase()}`
+    }));
   }
 
-  function onTypeChanged(){
-    const cat = getCatalog();
-    const plan = cat.find(p => String(p.id) === String(selType?.value||""));
-    if (!plan){
-      if (inpDays) inpDays.value = "";
-      if (inpPrice) inpPrice.value = "";
+  function showClientPicker(list){
+    if(!list || list.length===0){
+      mClientPick.style.display = "none";
+      mClientPick.innerHTML = "";
       return;
     }
-    if (inpDays) inpDays.value = String(plan.days ?? "");
-    if (inpPrice) inpPrice.value = Number(plan.price||0).toFixed(2);
-    // Autocompleta fin
-    if (inpStart && inpStart.value){
-      const end = addDays(inpStart.value, (Number(plan.days)||0)-1);
-      if (inpEnd) inpEnd.value = end;
+    mClientPick.style.display = "block";
+    mClientPick.innerHTML = "";
+    list.slice(0, 8).forEach(c=>{
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.innerHTML = `
+        <div><strong>${escapeHtml(c.name||"")}</strong></div>
+        <div class="sub">
+          <span>ID: ${escapeHtml(c.id||"")}</span>
+          <span>${escapeHtml(c.phone||"")}</span>
+        </div>
+      `;
+      btn.onclick = ()=>pickClient(c.id);
+      mClientPick.appendChild(btn);
+    });
+  }
+
+  function pickClient(id){
+    const c = getClients().find(x=>x.id===id);
+    if(!c) return;
+    mClientId.value = c.id;
+    mClientSearch.value = c.name || c.id;
+    mClientPicked.textContent = `Seleccionado: ${c.name || c.id} ${c.phone ? " | "+c.phone : ""}`;
+    showClientPicker([]);
+  }
+
+  function onClientSearch(){
+    const q = (mClientSearch.value||"").trim().toLowerCase();
+    mClientId.value = "";
+    mClientPicked.textContent = "";
+    if(!q){ showClientPicker([]); return; }
+    const list = getClients().filter(c=>c._search.includes(q));
+    showClientPicker(list);
+  }
+
+  // ---------- Plans selection ----------
+  function loadPlans(){
+    const list = dpGetMembershipCatalog();
+    mPlan.innerHTML = "";
+    list.forEach(p=>{
+      const opt = document.createElement("option");
+      opt.value = p.id;
+      opt.textContent = `${p.name} (${p.days} días) - ${fmtMoney(p.price)}`;
+      mPlan.appendChild(opt);
+    });
+    if(list.length){
+      mPlan.value = list[0].id;
+      syncPlanFields();
+    }else{
+      mDays.value = "";
+      mPrice.value = "";
+      mPlanHint.textContent = "No hay tipos. Agrega uno en Catálogo.";
     }
   }
 
-  function onStartOrDaysChanged(){
-    const days = Number(inpDays?.value||0);
-    if (!inpStart || !inpEnd) return;
-    if (!inpStart.value || !days) return;
-    inpEnd.value = addDays(inpStart.value, days-1);
-  }
-
-  function clearForm(){
-    selectedClientId = null;
-    if (clientQuery) clientQuery.value = "";
-    if (selType) selType.value = "";
-    if (inpDays) inpDays.value = "";
-    if (inpStart) inpStart.value = "";
-    if (inpEnd) inpEnd.value = "";
-    if (inpPrice) inpPrice.value = "";
-    if (inpNotes) inpNotes.value = "";
-    if (ticketBox) ticketBox.textContent = "Sin ticket.";
-    lastTicketHTML = "";
-    clientPick && (clientPick.innerHTML = "");
-    setPickVisible(false);
-  }
-
-  function validate(){
-    const cat = getCatalog();
-    const planId = selType?.value || "";
-    const plan = cat.find(p => String(p.id) === String(planId));
-    if (!plan) return { ok:false, msg:"Selecciona un tipo de membresía." };
-
-    // Cliente: si no hay id seleccionado, intenta resolver por nombre exacto
-    let clientId = selectedClientId;
-    const q = (clientQuery?.value||"").trim();
-    if (!clientId && q){
-      const c = getClients().find(x => String(x.name||"").toLowerCase() === q.toLowerCase());
-      if (c) clientId = c.id;
-    }
-    if (!clientId) return { ok:false, msg:"Selecciona un cliente del buscador." };
-    if (!inpStart?.value) return { ok:false, msg:"Selecciona la fecha de inicio." };
-
-    return { ok:true, plan, clientId };
-  }
-
-  function buildTicketHTMLFromSale(sale){
-    const biz = window.dpGetBizInfo?.() || { name:"Dinamita Gym" };
-    const cfg = window.dpGetTicketCfg?.() || { ivaDefault:0, message:"Gracias por tu compra en Dinamita Gym 💥" };
-    const dt = sale?.createdAt ? new Date(sale.createdAt) : new Date();
-    const dateStr = `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())} ${pad2(dt.getHours())}:${pad2(dt.getMinutes())}:${pad2(dt.getSeconds())}`;
-    const items = sale?.items || [];
-    const subtotal = Number(sale.subtotal||0);
-    const iva = Number(sale.iva||0);
-    const total = Number(sale.total||0);
-    const pay = sale?.payment || "";
-    const clientName = sale?.clientName || "Mostrador";
-
-    const lines = items.map(it => {
-      const qty = Number(it.qty||1);
-      const price = Number(it.price||0);
-      const name = it.name || "Item";
-      return `
-        <div class="tRow">
-          <div class="tName">${escapeHTML(name)}</div>
-          <div class="tQty">${qty} x</div>
-          <div class="tPrice">$${(qty*price).toFixed(2)}</div>
-        </div>`;
-    }).join("");
-
-    return `
-      <div class="ticket">
-        <div class="tCenter tBold">${escapeHTML(biz.name||"Dinamita Gym")}</div>
-        ${biz.address ? `<div class="tCenter">${escapeHTML(biz.address)}</div>` : ""}
-        ${biz.phone ? `<div class="tCenter">${escapeHTML(biz.phone)}</div>` : ""}
-        ${biz.email ? `<div class="tCenter">${escapeHTML(biz.email)}</div>` : ""}
-        ${biz.social ? `<div class="tCenter">${escapeHTML(biz.social)}</div>` : ""}
-        <hr />
-        <div class="tRow"><div>Ticket:</div><div class="tRight">${escapeHTML(sale.id||"")}</div></div>
-        <div class="tRow"><div>Fecha:</div><div class="tRight">${escapeHTML(dateStr)}</div></div>
-        <div class="tRow"><div>Cliente:</div><div class="tRight">${escapeHTML(clientName)}</div></div>
-        <div class="tRow"><div>Pago:</div><div class="tRight">${escapeHTML(pay)}</div></div>
-        <hr />
-        ${lines}
-        <hr />
-        <div class="tRow tBold"><div>Subtotal:</div><div class="tRight">$${subtotal.toFixed(2)}</div></div>
-        <div class="tRow tBold"><div>IVA:</div><div class="tRight">$${iva.toFixed(2)}</div></div>
-        <div class="tRow tBold tBig"><div>Total:</div><div class="tRight">$${total.toFixed(2)}</div></div>
-        <hr />
-        <div class="tCenter">${escapeHTML(cfg.message || "Gracias por tu compra en Dinamita Gym 💥")}</div>
-      </div>
-    `;
-  }
-
-  function renderTicketById(ticketId){
-    const st = window.dpGetState?.();
-    const sale = (st?.sales || []).find(s => String(s.id) === String(ticketId));
-    if (!sale){
-      lastTicketHTML = "";
-      if (ticketBox) ticketBox.textContent = "Sin ticket.";
+  function syncPlanFields(){
+    const plan = dpFindMembershipPlanById(mPlan.value);
+    if(!plan){
+      mPlanHint.textContent = "Plan no encontrado.";
       return;
     }
-    const html = buildTicketHTMLFromSale(sale);
-    lastTicketHTML = html;
-    if (ticketBox) ticketBox.innerHTML = html;
+    mDays.value = String(Number(plan.days||0));
+    mPrice.value = String(Number(plan.price||0));
+    mPlanHint.textContent = `Duración: ${plan.days} días | Precio: ${fmtMoney(plan.price)}`;
+    recalcEnd();
   }
 
-  function openPrintWindow(html){
-    const w = window.open("", "PRINT", "height=650,width=420");
-    if (!w) return;
-    w.document.write(`
-      <html><head><title>Ticket</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <style>
-          body{ font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; margin:12px; }
-          .ticket{ font-size: 15px; font-weight:700; }
-          .tCenter{ text-align:center; }
-          .tRight{ text-align:right; }
-          .tRow{ display:flex; justify-content:space-between; gap:10px; margin:2px 0; }
-          .tName{ flex:1; }
-          .tQty{ width:48px; text-align:right; }
-          .tPrice{ width:90px; text-align:right; }
-          .tBold{ font-weight:800; }
-          .tBig{ font-size:18px; }
-          hr{ border:none; border-top:1px dashed #999; margin:8px 0; }
-        </style>
-      </head><body>
-        ${html}
-        <script>window.onload=function(){ window.focus(); window.print(); window.close(); };</script>
-      </body></html>
-    `);
-    w.document.close();
+  function recalcEnd(){
+    if(!mStart.value) return;
+    const s = new Date(mStart.value);
+    if(isNaN(s.getTime())) return;
+    s.setDate(s.getDate() + Number(mDays.value||0));
+    mEnd.value = s.toISOString().slice(0,10);
   }
 
-  function handleSaveOnly(){
-    const v = validate();
-    if (!v.ok){ window.dpToast?.(v.msg||"Falta información"); return; }
-
-    const client = getClients().find(c => String(c.id) === String(v.clientId));
-    const payload = {
-      clientId: v.clientId,
-      clientName: client?.name || (clientQuery?.value||"Mostrador"),
-      planId: v.plan.id,
-      planName: v.plan.name,
-      days: Number(v.plan.days||inpDays?.value||0),
-      startDate: inpStart.value,
-      endDate: inpEnd?.value || addDays(inpStart.value, (Number(v.plan.days||0)-1)),
-      price: Number(inpPrice?.value || v.plan.price || 0),
-      notes: inpNotes?.value || "",
+  // ---------- Ticket helpers ----------
+  function getConfig(){
+    const st = state();
+    const cfg = st.config || {};
+    const biz = cfg.business || {};
+    const ticket = cfg.ticket || {};
+    return {
+      name: biz.name || "DINÁMITA GYM",
+      address: biz.address || "",
+      phone: biz.phone || "",
+      message: ticket.message || "Gracias por tu compra en Dinamita Gym 💥",
+      ivaLabel: ticket.ivaLabel || "IVA: 0%"
     };
-
-    window.dpCreateMembership?.(payload);
-    window.dpToast?.("Membresía guardada");
-    // Sin ticket, porque no es cobro
   }
 
-  function handleCharge(){
-    const v = validate();
-    if (!v.ok){ window.dpToast?.(v.msg||"Falta información"); return; }
+  function getClientName(clientId){
+    const st = state();
+    const c = (st.clients||[]).find(x=>x.id===clientId);
+    if(c) return c.name;
+    if(clientId === "GEN") return "Cliente General";
+    return clientId || "Cliente";
+  }
 
-    // Forma de pago: reutilizamos la de Ventas si existe, si no, efectivo
-    const paymentSel = document.querySelector("#v-payment");
-    const payment = paymentSel?.value || "efectivo";
+  function buildTicketHtmlFromSale(sale){
+    const cfg = getConfig();
+    const clientName = getClientName(sale.clientId);
+    const item = sale.items?.[0];
+    const concept = item?.name || "Servicio";
+    const price = item?.price ?? sale.total;
 
-    const client = getClients().find(c => String(c.id) === String(v.clientId));
-    const res = window.dpChargeMembership?.({
-      clientId: v.clientId,
-      clientName: client?.name || (clientQuery?.value||"Mostrador"),
-      planId: v.plan.id,
-      startDate: inpStart.value,
-      payment,
-      note: inpNotes?.value || "",
-    });
+    
+    const ms = (sale.meta && sale.meta.kind==="membership") ? (sale.meta.startDate || "") : "";
+    const me = (sale.meta && sale.meta.kind==="membership") ? (sale.meta.endDate || "") : "";
+const lines = [
+      cfg.name,
+      cfg.address,
+      cfg.phone ? ("Tel: " + cfg.phone) : "",
+      "------------------------------",
+      "TICKET: " + sale.id,
+      "Fecha: " + (sale.at || "").replace("T"," ").slice(0,19),
+      "Cliente: " + clientName,
+      "------------------------------",
+      concept,
+      (ms ? ("Inicio: " + ms) : ""),
+      (me ? ("Fin: " + me) : ""),
+      "Total: " + fmtMoney(price),
+      cfg.ivaLabel,
+      "------------------------------",
+      cfg.message
+    ].filter(Boolean);
 
-    if (res?.ticketId && chkTicket?.checked){
-      renderTicketById(res.ticketId);
-    } else {
-      if (ticketBox) ticketBox.textContent = "Sin ticket.";
-      lastTicketHTML = "";
+    const pre = lines.join("\n");
+    const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${sale.id}</title>
+<style>
+  body{ font-family: ui-monospace, Menlo, Consolas, monospace; padding:12px; }
+  .ticket{ max-width:320px; }
+  pre{ white-space:pre-wrap; font-size:12px; line-height:1.25; margin:0; }
+  @media print{ body{ padding:0; } }
+</style>
+</head>
+<body>
+<div class="ticket"><pre>${escapeHtml(pre)}</pre></div>
+<script>window.focus();</script>
+</body>
+</html>`;
+
+    return { pre, html, title: sale.id };
+  }
+
+  function openPrintWindow(html, title){
+    if(window.DG && typeof window.DG.printHtml === "function") {
+      window.DG.printHtml(html);
+      return;
     }
-
-    window.dpToast?.("Membresía cobrada");
-  }
-
-  function init(){
-    fillCatalog();
-
-    // Super buscador
-    on(clientQuery, "input", () => {
-      // Cuando el usuario escribe, se resetea la selección (obliga a elegir)
-      selectedClientId = null;
-      renderClientPick(clientQuery.value);
-    });
-
-    // iOS/Android: a veces el input no dispara input al autocompletar, por eso también keyup
-    on(clientQuery, "keyup", () => {
-      selectedClientId = null;
-      renderClientPick(clientQuery.value);
-    });
-
-    on(clientQuery, "focus", () => renderClientPick(clientQuery.value));
-
-    // cerrar al salir del input (con delay para permitir click en lista)
-    on(clientQuery, "blur", () => setTimeout(()=> setPickVisible(false), 200));
-
-    // Tipos
-    on(selType, "change", onTypeChanged);
-    on(inpStart, "change", () => { onStartOrDaysChanged(); });
-    on(inpDays, "input", () => { onStartOrDaysChanged(); });
-
-    // Botones
-    on(btnClear, "click", clearForm);
-    on(btnSave, "click", handleSaveOnly);
-    on(btnCharge, "click", handleCharge);
-
-    on(btnPrint, "click", () => {
-      if (!lastTicketHTML){ window.dpToast?.("Primero genera el ticket."); return; }
-      openPrintWindow(lastTicketHTML);
-    });
-
-    on(btnCatalog, "click", () => {
-      // Abre/cierra panel del catálogo (si existe)
-      const panel = $("#m-catalogPanel");
-      if (panel) panel.classList.toggle("hidden");
-    });
-
-    // Default: hoy
-    if (inpStart && !inpStart.value){
-      inpStart.value = toISODate(new Date());
-    }
-    onTypeChanged();
-  }
-
-  // Ejecuta init cuando el módulo esté en el DOM
-  if (document.readyState === "loading"){
-    document.addEventListener("DOMContentLoaded", init);
-  } else {
-    init();
-  }
-
+    const w = window.open("", "_blank", "width=420,height=700");
+    if(!w){ alert("No se pudo abrir la impresión. Habilita ventanas emergentes o imprime desde PC."); return; }
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    setTimeout(()=>{ try{ w.focus(); w.print(); }catch(e){} }, 250);
 })();
